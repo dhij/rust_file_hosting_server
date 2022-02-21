@@ -6,7 +6,6 @@ fn handle_client(mut stream: TcpStream) {
     let mut data = [0 as u8; 50];
     while match stream.read(&mut data) {
         Ok(size) => {
-            // echo everything!
             stream.write(&data[0..size]).unwrap();
             true
         }
