@@ -1,33 +1,18 @@
-use std::io::{Read, Write};
+use std::fs::File;
+use std::io::{Error, Read, Result, Write};
 use std::net::TcpStream;
-use std::str::from_utf8;
+use std::path::Path;
 
 fn main() {
     match TcpStream::connect("localhost:7878") {
-        Ok(mut stream) => {
+        Ok(stream) => {
             println!(
                 "Connected to the server at {}!",
                 stream.peer_addr().unwrap()
             );
 
-            let msg = b"hello server";
-
-            stream.write(msg).unwrap();
-            println!("Sent, awaiting reply");
-
-            let mut data = [0 as u8; 12];
-            match stream.read_exact(&mut data) {
-                Ok(_) => {
-                    if &data == msg {
-                        println!("Reply is ok! Reply: {}", from_utf8(&data).unwrap());
-                    } else {
-                        let text = from_utf8(&data).unwrap();
-                        println!("Unexpected reply: {}", text);
-                    }
-                }
-                Err(e) => {
-                    println!("Failed to receive data: {}", e);
-                }
+            if let Err(e) = send_file(stream, "./client_dir/test.txt") {
+                panic!("The file was not able to be sent: {:?}", e);
             }
         }
         Err(e) => {
@@ -35,4 +20,14 @@ fn main() {
         }
     }
     println!("Terminated.");
+}
+
+fn send_file(mut stream: TcpStream, path: &str) -> Result<()> {
+    let file = File::open(Path::new(path))?;
+    let file_size = file.metadata().unwrap().len();
+
+    let buffer = vec![0; file_size as usize];
+    let written_amt = stream.write(&buffer)?;
+    println!("Bytes written to stream: {}", written_amt);
+    Ok(())
 }
