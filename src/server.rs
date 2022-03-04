@@ -1,69 +1,83 @@
-use std::io::{BufRead, BufReader, BufWriter, Read, Write};
-use std::net::{Shutdown, TcpListener, TcpStream};
-use std::str::from_utf8;
+use std::io::{BufRead, BufReader, Read, Write};
+use std::net::{TcpListener, TcpStream};
 use std::thread;
-use std::fs;
-use std::fs::{File, OpenOptions};
 use std::path::PathBuf;
+use std::str;
 
 fn handle_client(mut stream: TcpStream) {
     let mut buffer = vec![0; 4096];
-
 
     loop {
 
         match stream.read(&mut buffer) {
             Ok(size) => {
 
-
-                println!(
-                    "Buffer currently holds: {:?}",
-                    String::from_utf8_lossy(&buffer[0..size])
-                );
-
                 let command = String::from_utf8_lossy(&buffer[0..size]);
                 println!("{}", command);
                 let words: Vec<&str> = command.trim().split_whitespace().collect();
+                println!("{}", &words[0]);
 
                 //write command
-                if &words[0] == &"write" {
+                if &words[0] == &"upload" {
 
                     //get file path
                     let mut path =  PathBuf::from("./publicFiles/");
-                    path.push(words[1]);
 
+                    //push filename to path
+                    path.push(&words[1]);
+                    println!("{}", &words[1]);
 
                     //create file
-                    let mut file = match OpenOptions::new()
-                        .write(true)
-                        .create(true)
-                        .open("./publicFiles/hello.txt"){
-                        Err(e) =>{
-                            println!("Error opening file for write operation");
-                        },
-                        Ok(file) => ()
-                    };
+                    let mut file = std::fs::File::create(&path).expect("Error creating file");
 
                     //ask for file size
                     match write!(&stream, "{}", &"send file size\n"){
                         Ok(_) => {
-                            println!("File size received: ");
+                            println!("File size received");
                             ()
                         },
                         Err(e) => {
-                            println!("Error sending message to client when asking for file size");
+                            println!("Error sending message to client when asking for file size: {}", e);
                         }
                     }
 
-                    //read file size from client
+                    //BufReader to read filesize, filesizebuf to store filesize
                     let mut reader = BufReader::new(&stream);
-                    let mut filesizeBuf: Vec<u8> = Vec::new();
+                    let mut filesizeBuf = Vec::new();
 
+                    //read file size from client
+                    match reader.read_until(b'\n', &mut filesizeBuf){
+                        Ok(_) => (),
+                        Err(e) => {
+                            println!("Error reading file size: {}", e);
+                        }
+                    }
+
+                    filesizeBuf.pop(); // pop the \n
 
                     //create buffer for file data
+                    let filesize = str::from_utf8(&filesizeBuf).unwrap().parse::<usize>().unwrap(); //parse into usize
 
-                    //add data to file
+                    let mut fileData = vec![0; filesize as usize];
 
+
+                    //read data from user, put data into fileData vec
+                    match reader.read_exact(&mut fileData){
+                        Ok(_) => (),
+                        Err(e) => {
+                            println!("Error reading file data: {}", e);
+                        }
+                    }
+
+                    //write data into file opened earlier
+                    match file.write(&fileData[0..fileData.len()]){
+                        Ok(_) => (),
+                        Err(e) => {
+                            println!("Error writing to file: {}", e);
+                        }
+                    }
+
+                    println!("File uploaded");
 
                 } // write
                 else if words[0] == "get" {
