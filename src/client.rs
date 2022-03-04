@@ -185,19 +185,6 @@ fn receive_file(mut stream: &TcpStream, file_name: &str) -> Result<()> {
     //create file
     let mut file = std::fs::File::create(&path).expect("Error creating file");
 
-    //ask for file size
-    match write!(stream, "{}", "file size request\n") {
-        Ok(_) => {
-            println!("File size received");
-            ()
-        }
-        Err(e) => {
-            println!(
-                "Error sending message to server when asking for file size: {}",
-                e
-            );
-        }
-    }
 
     //BufReader to read filesize, filesize_buf to store filesize
     let mut reader = BufReader::new(stream);
@@ -218,6 +205,7 @@ fn receive_file(mut stream: &TcpStream, file_name: &str) -> Result<()> {
         .unwrap()
         .parse::<usize>()
         .unwrap(); //parse into usize
+
 
     let mut file_data = vec![0; filesize as usize];
 

@@ -23,24 +23,10 @@ fn handle_client(mut stream: TcpStream) {
 
                     //push filename to path
                     path.push(&words[1]);
-                    println!("{}", &words[1]);
 
                     //create file
                     let mut file = std::fs::File::create(&path).expect("Error creating file");
 
-                    //ask for file size
-                    match write!(&stream, "{}", &"file size request\n") {
-                        Ok(_) => {
-                            println!("File size received");
-                            ()
-                        }
-                        Err(e) => {
-                            println!(
-                                "Error sending message to client when asking for file size: {}",
-                                e
-                            );
-                        }
-                    }
 
                     //BufReader to read filesize, filesizebuf to store filesize
                     let mut reader = BufReader::new(&stream);
@@ -128,6 +114,7 @@ fn send_file(mut stream: &TcpStream, file_name: &str) -> Result<()> {
     //file length string ending with \n so server knows when to stop reading
     let mut file_length = file_size.to_string();
     file_length.push_str("\n");
+
 
     // sending file size
     match stream.write(&file_length.as_bytes()) {
