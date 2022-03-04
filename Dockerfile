@@ -14,6 +14,8 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 COPY src ./src
 COPY ./Cargo.toml .
 COPY ./Cargo.lock .
+COPY client_dir ./client_dir
+COPY publicFiles ./publicFiles
 
 # Compile rust files in debug mode
 RUN cargo build
