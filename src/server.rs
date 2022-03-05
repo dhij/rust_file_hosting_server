@@ -12,7 +12,6 @@ fn handle_client(mut stream: TcpStream) {
         match stream.read(&mut buffer) {
             Ok(size) => {
                 let command = String::from_utf8_lossy(&buffer[0..size]);
-                println!("{}", command);
                 let words: Vec<&str> = command.trim().split_whitespace().collect();
 
                 //write command
@@ -33,7 +32,7 @@ fn handle_client(mut stream: TcpStream) {
                         }
                     }
 
-                    println!("File uploaded");
+                    // println!("File uploaded");
                 }
                 // write
                 else if words[0] == "download" {
@@ -54,13 +53,13 @@ fn handle_client(mut stream: TcpStream) {
 }
 
 fn main() {
-    let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
+    let listener = TcpListener::bind("localhost:7878").unwrap();
 
     println!("Server listening on: {}", listener.local_addr().unwrap());
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                println!("New connection: {}", stream.peer_addr().unwrap());
+                // println!("New connection: {}", stream.peer_addr().unwrap());
                 thread::spawn(move || handle_client(stream));
             }
             Err(e) => {

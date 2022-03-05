@@ -152,7 +152,7 @@ fn receive_file(mut stream: &TcpStream, file_name: &str) -> Result<()> {
         }
     }
 
-    let mut path = PathBuf::from("./client_dir/");
+    let mut path = PathBuf::from("../client_dir/");
 
     //push filename to path
     path.push(&file_name);
