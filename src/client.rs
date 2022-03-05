@@ -41,11 +41,11 @@ fn command_loop() {
             );
 
             let command_list =
-                "\n Commands: \n -- upload filepath \n -- download filename \n -- help \n -- quit \n";
-
-            println!("{}", command_list);
+                "\n Commands: \n -- upload <file_path> \n -- download <file_name> \n -- help \n -- quit \n";
 
             loop {
+                println!("{}", command_list);
+
                 let mut user_input = String::new();
                 io::stdin()
                     .read_line(&mut user_input)
@@ -55,20 +55,22 @@ fn command_loop() {
                 match cmd[0] {
                     "upload" => {
                         if cmd.len() < 2 {
-                            println!("Command needs to be in the form upload filepath");
+                            println!("Command needs to be in the form: upload <file_path>");
+                            println!("\nPlease try again: ");
                             continue;
                         }
                         if let Err(e) = send_file(&stream, cmd[1]) {
-                            println!("The file was not able to be sent: {:?}", e);
+                            println!("Upload failed: {:?}", e);
+                            println!("\nPlease try again: ");
                         }
                     }
                     "download" => {
                         if cmd.len() < 2 {
-                            println!("Command needs to be in the form download filename");
+                            println!("Command needs to be in the form: download <file_name>");
                             continue;
                         }
                         if let Err(e) = receive_file(&stream, cmd[1]) {
-                            println!("The file was not able to be downloaded: {:?}", e);
+                            println!("Download failed: {:?}", e);
                         }
                     }
                     "help" => {
@@ -93,59 +95,32 @@ fn command_loop() {
 fn send_file(mut stream: &TcpStream, path: &str) -> Result<()> {
     let file = File::open(Path::new(path))?;
     let file_size = file.metadata().unwrap().len();
-
     let path_names: Vec<&str> = path.split("/").collect();
     let file_name = path_names[path_names.len() - 1];
-    let mut command = String::from("upload ");
-
-    //command will have upload filename, not file path for server
-    command.push_str(file_name);
-    println!("Command: {}", command);
-
-    //file length string ending with \n so server knows when to stop reading
-    let mut file_length = file_size.to_string();
-    file_length.push_str("\n");
-
-    // sending command to server
-    match stream.write(command.as_bytes()) {
-        Ok(_) => {
-            println!("Upload Command Sent");
-            ()
-        }
-        Err(e) => {
-            println!("Error sending upload command to server: {}", e);
-        }
-    }
-
-    // sending file size
-    match stream.write(&file_length.as_bytes()) {
-        Ok(_) => {
-            println!("File size sent");
-            ()
-        }
-        Err(e) => {
-            println!("Error sending file size to server: {}", e);
-        }
-    }
 
     // Reading data from file to send to server
-    let mut buffer = Vec::new();
+    let mut buffer = vec![0; file_size as usize];
     match File::open(&path) {
         Ok(mut file) => {
-            match file.read_to_end(&mut buffer) {
+            match file.read(&mut buffer) {
                 Ok(_) => (),
                 Err(e) => {
-                    println!("Error reading file to copy data: {}", e);
+                    println!("Error reading file to buffer: {}", e);
                 }
             };
         }
         Err(e) => {
-            println!("Error opening file to copy data: {}", e);
+            println!("Error opening file from path: {}", e);
         }
     };
 
+    let mut data = format!("upload {} {} ", file_size, file_name)
+        .as_bytes()
+        .to_vec();
+    data.extend(&buffer);
+
     // sending file data
-    match stream.write(&buffer) {
+    match stream.write(&data) {
         Ok(_) => {
             println!("File data sent");
             ()
@@ -162,7 +137,7 @@ fn send_file(mut stream: &TcpStream, path: &str) -> Result<()> {
 fn receive_file(mut stream: &TcpStream, file_name: &str) -> Result<()> {
     let mut command = String::from("download ");
 
-    //command will have upload filename
+    //command will have downloaded filename
     command.push_str(file_name);
     println!("Command: {}", command);
 
@@ -185,7 +160,6 @@ fn receive_file(mut stream: &TcpStream, file_name: &str) -> Result<()> {
     //create file
     let mut file = std::fs::File::create(&path).expect("Error creating file");
 
-
     //BufReader to read filesize, filesize_buf to store filesize
     let mut reader = BufReader::new(stream);
     let mut filesize_buf = Vec::new();
@@ -205,7 +179,6 @@ fn receive_file(mut stream: &TcpStream, file_name: &str) -> Result<()> {
         .unwrap()
         .parse::<usize>()
         .unwrap(); //parse into usize
-
 
     let mut file_data = vec![0; filesize as usize];
 

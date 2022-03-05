@@ -14,7 +14,6 @@ fn handle_client(mut stream: TcpStream) {
                 let command = String::from_utf8_lossy(&buffer[0..size]);
                 println!("{}", command);
                 let words: Vec<&str> = command.trim().split_whitespace().collect();
-                println!("{:?}", &words);
 
                 //write command
                 if words[0] == "upload" {
@@ -22,44 +21,12 @@ fn handle_client(mut stream: TcpStream) {
                     let mut path = PathBuf::from("./publicFiles/");
 
                     //push filename to path
-                    path.push(&words[1]);
+                    path.push(&words[2]);
 
                     //create file
                     let mut file = std::fs::File::create(&path).expect("Error creating file");
-
-
-                    //BufReader to read filesize, filesizebuf to store filesize
-                    let mut reader = BufReader::new(&stream);
-                    let mut filesize_buf = Vec::new();
-
-                    //read file size from client
-                    match reader.read_until(b'\n', &mut filesize_buf) {
-                        Ok(_) => (),
-                        Err(e) => {
-                            println!("Error reading file size: {}", e);
-                        }
-                    }
-
-                    filesize_buf.pop(); // pop the \n
-
-                    //create buffer for file data
-                    let filesize = str::from_utf8(&filesize_buf)
-                        .unwrap()
-                        .parse::<usize>()
-                        .unwrap(); //parse into usize
-
-                    let mut file_data = vec![0; filesize as usize];
-
-                    //read data from user, put data into fileData vec
-                    match reader.read_exact(&mut file_data) {
-                        Ok(_) => (),
-                        Err(e) => {
-                            println!("Error reading file data: {}", e);
-                        }
-                    }
-
                     //write data into file opened earlier
-                    match file.write(&file_data[0..file_data.len()]) {
+                    match file.write(words[3..].join(" ").as_bytes()) {
                         Ok(_) => (),
                         Err(e) => {
                             println!("Error writing to file: {}", e);
@@ -114,7 +81,6 @@ fn send_file(mut stream: &TcpStream, file_name: &str) -> Result<()> {
     //file length string ending with \n so server knows when to stop reading
     let mut file_length = file_size.to_string();
     file_length.push_str("\n");
-
 
     // sending file size
     match stream.write(&file_length.as_bytes()) {
