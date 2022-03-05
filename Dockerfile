@@ -16,9 +16,11 @@ COPY ./Cargo.toml .
 COPY ./Cargo.lock .
 COPY client_dir ./client_dir
 COPY publicFiles ./publicFiles
+COPY ./init.sh ./init.sh
 
 # Compile rust files in debug mode
+RUN chmod +x init.sh
 RUN cargo build
 
 # Run bash as main process
-CMD ["./bin/bash"]
+CMD ["/home/init.sh"]
