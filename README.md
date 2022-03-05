@@ -1,21 +1,48 @@
-# Rust_File_Hosting_Server
+# Rust File Server
 
-## Dockerfile
+## Dockerfile Commands
+```
+cd rust_file_hosting_server
 
-Build and store the docker image:
-docker build -t "image-name" .
+docker build -t rust-file-server .
 
-Run container based off of image and enter an interactive shell in container:
-docker run -it image-name
-
+docker run -it rust-file-server
+```
 ## To Run
 
-Run server: cargo run --bin server
+Server is listening on: 127.0.0.1:7878 upon running the container
+```
+cd src
 
-Run client: cargo run --bin client
+cargo run --bin client
+```
+## CLI Examples
 
-## Semantic Commit messages
+To Connect:
+```
+Commands: connect | quit
 
-- feat: :zap: new feature
-- fix: :bug: fix bug
-- refactor: :hammer: refactor code
+connect
+```
+
+To Upload a File from the client_dir Directory
+```
+Commands: 
+-- upload <file_path> 
+-- download <file_name> 
+-- help 
+-- quit 
+ 
+upload ../client_dir/test1.txt
+```
+
+To Download a File from publicFiles Directory
+```
+Commands: 
+-- upload <file_path> 
+-- download <file_name> 
+-- help 
+-- quit 
+
+download serverFile.txt
+```
