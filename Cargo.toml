@@ -15,3 +15,4 @@ name = "client"
 path = "src/client.rs"
 
 [dependencies]
+bcrypt = "0.12"
