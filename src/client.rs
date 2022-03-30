@@ -33,6 +33,8 @@ fn main() {
 }
 
 fn command_loop() {
+    let mut authenticated_user = false;
+
     match TcpStream::connect("localhost:7878") {
         Ok(stream) => {
             println!(
@@ -40,47 +42,107 @@ fn command_loop() {
                 stream.peer_addr().unwrap()
             );
 
-            let command_list =
+            loop {
+                if authenticated_user {
+                    let command_list =
                 "\n Commands: \n -- upload <file_path> \n -- download <file_name> \n -- help \n -- quit \n";
 
-            loop {
-                println!("{}", command_list);
-
-                let mut user_input = String::new();
-                io::stdin()
-                    .read_line(&mut user_input)
-                    .expect("Error on read");
-                let cmd: Vec<&str> = user_input.trim().split_whitespace().collect();
-
-                match cmd[0] {
-                    "upload" => {
-                        if cmd.len() < 2 {
-                            println!("Command needs to be in the form: upload <file_path>");
-                            println!("\nPlease try again: ");
-                            continue;
-                        }
-                        if let Err(e) = send_file(&stream, cmd[1]) {
-                            println!("Upload failed: {:?}", e);
-                            println!("\nPlease try again: ");
-                        }
-                    }
-                    "download" => {
-                        if cmd.len() < 2 {
-                            println!("Command needs to be in the form: download <file_name>");
-                            continue;
-                        }
-                        if let Err(e) = receive_file(&stream, cmd[1]) {
-                            println!("Download failed: {:?}", e);
-                        }
-                    }
-                    "help" => {
+                    loop {
                         println!("{}", command_list);
+
+                        let mut user_input = String::new();
+                        io::stdin()
+                            .read_line(&mut user_input)
+                            .expect("Error on read");
+                        let cmd: Vec<&str> = user_input.trim().split_whitespace().collect();
+
+                        match cmd[0] {
+                            "upload" => {
+                                if cmd.len() < 2 {
+                                    println!("Command needs to be in the form: upload <file_path>");
+                                    println!("\nPlease try again: ");
+                                    continue;
+                                }
+                                if let Err(e) = send_file(&stream, cmd[1]) {
+                                    println!("Upload failed: {:?}", e);
+                                    println!("\nPlease try again: ");
+                                }
+                            }
+                            "download" => {
+                                if cmd.len() < 2 {
+                                    println!(
+                                        "Command needs to be in the form: download <file_name>"
+                                    );
+                                    continue;
+                                }
+                                if let Err(e) = receive_file(&stream, cmd[1]) {
+                                    println!("Download failed: {:?}", e);
+                                }
+                            }
+                            "help" => {
+                                println!("{}", command_list);
+                            }
+                            "quit" => {
+                                break;
+                            }
+                            _ => {
+                                print!("Please enter a valid command.");
+                            }
+                        }
                     }
-                    "quit" => {
-                        break;
-                    }
-                    _ => {
-                        print!("Please enter a valid command.");
+                } else {
+                    // not authenticated
+                    let command_list =
+                "\n Commands: \n -- login <username> \n -- create <username> \n -- help \n -- quit \n";
+                    println!("{}", command_list);
+
+                    let mut user_input = String::new();
+                    io::stdin()
+                        .read_line(&mut user_input)
+                        .expect("Error on read");
+                    let cmd: Vec<&str> = user_input.trim().split_whitespace().collect();
+                    match cmd[0] {
+                        "login" => {
+                            if cmd.len() < 2 {
+                                println!("Command needs to be in the form: login <username>");
+                                println!("\nPlease try again: ");
+                            }
+
+                            println!("Enter your password:");
+                            let mut password_input = String::new();
+                            io::stdin()
+                                .read_line(&mut password_input)
+                                .expect("Error on reading the password");
+
+                            if let Err(e) = login(&stream, cmd[1], &password_input[..]) {
+                                println!("Login failed: {:?}", e);
+                                println!("\nPlease try again: ");
+                            }
+
+                            // login successful
+                            authenticated_user = true;
+                            continue;
+                        }
+                        "create" => {
+                            // prompt the user for the password
+                            print!("Enter a new password: \n");
+                            let mut password_input = String::new();
+                            io::stdin()
+                                .read_line(&mut password_input)
+                                .expect("Error on reading the password");
+
+                            if cmd.len() < 2 {
+                                println!("Command needs to be in the form: create <username>");
+                                println!("\nPlease try again: ");
+                            }
+                            if let Err(e) = create_user(&stream, cmd[1], &password_input[..]) {
+                                println!("Creating user failed: {:?}", e);
+                                println!("\nPlease try again: ");
+                            }
+                        }
+                        _ => {
+                            print!("Please enter a valid command.");
+                        }
                     }
                 }
             }
@@ -90,6 +152,42 @@ fn command_loop() {
         }
     }
     println!("Connection terminated.");
+}
+
+fn login(mut stream: &TcpStream, username: &str, password: &str) -> Result<()> {
+    let data = format!("login {} {}", username, password)
+        .as_bytes()
+        .to_vec();
+
+    match stream.write(&data) {
+        Ok(_) => {
+            println!("Login information sent");
+            ()
+        }
+        Err(e) => {
+            println!("Error sending login information to server: {}", e);
+        }
+    }
+
+    Ok(())
+}
+
+fn create_user(mut stream: &TcpStream, username: &str, password: &str) -> Result<()> {
+    let data = format!("create {} {}", username, password)
+        .as_bytes()
+        .to_vec();
+
+    match stream.write(&data) {
+        Ok(_) => {
+            println!("New user information sent");
+            ()
+        }
+        Err(e) => {
+            println!("Error sending user information to server: {}", e);
+        }
+    }
+
+    Ok(())
 }
 
 fn send_file(mut stream: &TcpStream, path: &str) -> Result<()> {
