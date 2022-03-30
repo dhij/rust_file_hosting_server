@@ -169,8 +169,6 @@ fn login(mut stream: &TcpStream, username: &str, password: &str) -> Result<()> {
         }
     }
 
-    println!("Login information sent successfully!");
-
     Ok(())
 }
 
@@ -188,8 +186,6 @@ fn create_user(mut stream: &TcpStream, username: &str, password: &str) -> Result
             println!("Error sending user information to server: {}", e);
         }
     }
-
-    println!("New user information sent successfully!");
 
     Ok(())
 }
