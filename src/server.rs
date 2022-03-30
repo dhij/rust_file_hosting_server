@@ -1,3 +1,6 @@
+extern crate bcrypt;
+
+use bcrypt::{hash, verify, DEFAULT_COST};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Result, Write};
 use std::net::{TcpListener, TcpStream};
@@ -14,7 +17,6 @@ fn handle_client(mut stream: TcpStream) {
                 let command = String::from_utf8_lossy(&buffer[0..size]);
                 let words: Vec<&str> = command.trim().split_whitespace().collect();
 
-                //write command
                 if words[0] == "upload" {
                     //get file path
                     let mut path = PathBuf::from("./publicFiles/");
@@ -24,6 +26,7 @@ fn handle_client(mut stream: TcpStream) {
 
                     //create file
                     let mut file = std::fs::File::create(&path).expect("Error creating file");
+
                     //write data into file opened earlier
                     match file.write(words[3..].join(" ").as_bytes()) {
                         Ok(_) => (),
@@ -33,21 +36,65 @@ fn handle_client(mut stream: TcpStream) {
                     }
 
                     // println!("File uploaded");
-                }
-                // write
-                else if words[0] == "download" {
+                } else if words[0] == "download" {
                     if let Err(e) = send_file(&stream, words[1]) {
                         println!("The file was not able to be downloaded: {:?}", e);
                     }
-                } // download
-            } // OK
+                } else if words[0] == "login" {
+                    println!("Login - Username: {}, Password: {}", &words[1], &words[2]);
+                    // check if username exists
+                    // if it exists, check the text file and compare the hashpassword
+                } else if words[0] == "create" {
+                    // hash the password
+                    let hashed_password = hash(&words[2], DEFAULT_COST).unwrap();
+                    let user_input = words[1];
+                    let user_info = format!("{}={}", &user_input, hashed_password);
+
+                    // read list of existing users from users.txt
+                    let f = File::open("./users/users.txt").expect("Unable to open file");
+                    let f = BufReader::new(f);
+
+                    let mut existing_users: Vec<String> = Vec::new();
+
+                    // store the list of existing users (username=password) in a vector
+                    for line in f.lines() {
+                        let line = line.expect("Unable to read line");
+                        existing_users.push(line);
+                    }
+
+                    // loop through the list of existing users and check if username exists
+                    for user in existing_users.clone().into_iter() {
+                        // split "username=password" into username and password
+                        let user_info: Vec<&str> = user[..].split("=").collect();
+
+                        // if username already exists
+                        if user_info[0] == user_input {
+                            // TODO: throw error to the client
+                            eprintln!("Username exists. Please try again.");
+                            return;
+                        }
+                    }
+
+                    // if the username does not already exist, append the new user_info to the existing user_info
+                    existing_users.push(user_info.clone());
+
+                    // join the list of existing users into a string separated by carriage returns
+                    let joined_users = existing_users.join("\n");
+
+                    // write new list of users to the users.txt file
+                    let path = Path::new("./users/users.txt");
+                    let mut file = File::create(&path).expect("Error opening file");
+                    file.write_all(joined_users[..].as_bytes())
+                        .expect("Unable to write data");
+                }
+            } // ok
             Err(_) => {
                 println!(
                     "An error occurred, terminating connection with {}",
                     stream.peer_addr().unwrap()
                 );
                 break;
-            } // Err
+            } // err
         } // match
     } // loop
 }
@@ -70,18 +117,18 @@ fn main() {
 }
 
 fn send_file(mut stream: &TcpStream, file_name: &str) -> Result<()> {
-    //currently downloads files only from publicFiles folder
+    // currently downloads files only from publicFiles folder
     let mut path = PathBuf::from("./publicFiles/");
     path.push(file_name);
 
     let file = File::open(Path::new(&path)).expect("Error opening file");
     let file_size = file.metadata().unwrap().len();
 
-    //file length string ending with \n so server knows when to stop reading
+    // file length string ending with \n so server knows when to stop reading
     let mut file_length = file_size.to_string();
     file_length.push_str("\n");
 
-    // sending file size
+    // send file size
     match stream.write(&file_length.as_bytes()) {
         Ok(_) => {
             println!("File size sent");
@@ -92,7 +139,7 @@ fn send_file(mut stream: &TcpStream, file_name: &str) -> Result<()> {
         }
     }
 
-    // Reading data from file to send to client
+    // read data from file to send to client
     let mut buffer = Vec::new();
     match File::open(&path) {
         Ok(mut file) => {
@@ -108,7 +155,7 @@ fn send_file(mut stream: &TcpStream, file_name: &str) -> Result<()> {
         }
     };
 
-    // sending file data
+    // send file data
     match stream.write(&buffer) {
         Ok(_) => {
             println!("File data sent");
