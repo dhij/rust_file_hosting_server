@@ -41,9 +41,11 @@ fn handle_client(mut stream: TcpStream) {
                         println!("The file was not able to be downloaded: {:?}", e);
                     }
                 } else if words[0] == "login" {
-                    println!("Login - Username: {}, Password: {}", &words[1], &words[2]);
-                    // check if username exists
-                    // if it exists, check the text file and compare the hashpassword
+
+                    if let Err(e) = login(&stream, words[1], words[2]) {
+                        println!("Login Unsuccessful: {:?}", e);
+                    }
+
                 } else if words[0] == "create" {
                     // hash the password
                     let hashed_password = hash(&words[2], DEFAULT_COST).unwrap();
@@ -114,6 +116,67 @@ fn main() {
             }
         }
     }
+}
+
+fn login(mut stream: &TcpStream, givenUsername: &str, givenPassword: &str) -> Result<()> {
+    println!("Login - Username: {}, Password: {}", givenUsername, givenPassword);
+    let mut loginResult = String::from("Hello\n");
+    // check if username exists
+    let mut usernameFound = false;
+
+    //read from existing users file
+    let f = File::open("./users/users.txt").expect("Unable to open file");
+    let f = BufReader::new(f);
+
+    let mut existing_users: Vec<String> = Vec::new();
+
+    //store users in vec
+    for line in f.lines() {
+        let line = line.expect("Unable to read line");
+        existing_users.push(line);
+    }
+
+    for username in existing_users.clone().into_iter() {
+        let user_info: Vec<&str> = username[..].split("=").collect();
+
+        if user_info[0] == givenUsername {
+            usernameFound = true;
+            println!("Username matched");
+
+            // if it exists, check the text file and compare the hashpassword
+            match verify(givenPassword,user_info[1]) {
+                Ok(boo) => if boo {
+                    println!("Login Successful");
+                    loginResult = String::from("Login Successful\n");
+                } else {
+                    println!("Password Incorrect");
+                    loginResult = String::from("Password Incorrect\n");
+                },
+                Err(e) => println!("{}", e),
+            }
+
+        }
+    }
+
+    // if username is not found, send error message to user
+    if !usernameFound {
+        println!("Username not found");
+        loginResult = String::from("Username not found\n");
+    }
+
+
+
+    match stream.write(&loginResult.as_bytes()) {
+        Ok(_) => {
+            println!("Login result sent");
+            ()
+        }
+        Err(e) => {
+            println!("Error sending file size to server: {}", e);
+        }
+    }
+
+    Ok(())
 }
 
 fn send_file(mut stream: &TcpStream, file_name: &str) -> Result<()> {

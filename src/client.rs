@@ -33,6 +33,7 @@ fn main() {
 }
 
 fn command_loop() {
+    let mut quit: bool = false;
     let mut authenticated_user = false;
 
     match TcpStream::connect("localhost:7878") {
@@ -44,6 +45,9 @@ fn command_loop() {
 
             loop {
                 if authenticated_user {
+                    if quit == true {
+                        break;
+                    }
                     let command_list =
                 "\n Commands: \n -- upload <file_path> \n -- download <file_name> \n -- help \n -- quit \n";
 
@@ -83,6 +87,7 @@ fn command_loop() {
                                 println!("{}", command_list);
                             }
                             "quit" => {
+                                quit = true;
                                 break;
                             }
                             _ => {
@@ -114,13 +119,17 @@ fn command_loop() {
                                 .read_line(&mut password_input)
                                 .expect("Error on reading the password");
 
-                            if let Err(e) = login(&stream, cmd[1], &password_input[..]) {
-                                println!("Login failed: {:?}", e);
+                            let result = login(&stream, cmd[1], &password_input[..]);
+
+                            if !result {
+                                println!("Login failed:");
                                 println!("\nPlease try again: ");
+                            } else {
+                                authenticated_user = true;
                             }
 
                             // login successful
-                            authenticated_user = true;
+                            //authenticated_user = true;
                             continue;
                         }
                         "create" => {
@@ -154,7 +163,10 @@ fn command_loop() {
     println!("Connection terminated.");
 }
 
-fn login(mut stream: &TcpStream, username: &str, password: &str) -> Result<()> {
+fn login(mut stream: &TcpStream, username: &str, password: &str) -> bool {
+
+    let mut serverResult: bool = false;
+
     let data = format!("login {} {}", username, password)
         .as_bytes()
         .to_vec();
@@ -169,7 +181,30 @@ fn login(mut stream: &TcpStream, username: &str, password: &str) -> Result<()> {
         }
     }
 
-    Ok(())
+    //BufReader to read filesize, filesize_buf to store filesize
+    let mut reader = BufReader::new(stream);
+    let mut loginResult = Vec::new();
+
+    //read file size from server
+    match reader.read_until(b'\n', &mut loginResult) {
+        Ok(_) => (),
+        Err(e) => {
+            println!("Error reading file size: {}", e);
+        }
+    }
+
+    loginResult.pop(); // pop the \n
+
+    let loginRes = str::from_utf8(&loginResult).unwrap();
+
+    println!("{}", loginRes);
+
+    if loginRes == "Login Successful" {
+        serverResult = true;
+    }
+
+    serverResult
+
 }
 
 fn create_user(mut stream: &TcpStream, username: &str, password: &str) -> Result<()> {
@@ -250,7 +285,7 @@ fn receive_file(mut stream: &TcpStream, file_name: &str) -> Result<()> {
         }
     }
 
-    let mut path = PathBuf::from("../client_dir/");
+    let mut path = PathBuf::from("./client_dir/");
 
     //push filename to path
     path.push(&file_name);
