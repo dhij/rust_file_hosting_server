@@ -1,6 +1,7 @@
 extern crate bcrypt;
 
 use bcrypt::{hash, verify, DEFAULT_COST};
+use std::fs;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Result, Write};
 use std::net::{TcpListener, TcpStream};
@@ -41,11 +42,9 @@ fn handle_client(mut stream: TcpStream) {
                         println!("The file was not able to be downloaded: {:?}", e);
                     }
                 } else if words[0] == "login" {
-
                     if let Err(e) = login(&stream, words[1], words[2]) {
                         println!("Login Unsuccessful: {:?}", e);
                     }
-
                 } else if words[0] == "create" {
                     // hash the password
                     let hashed_password = hash(&words[2], DEFAULT_COST).unwrap();
@@ -88,6 +87,11 @@ fn handle_client(mut stream: TcpStream) {
                     let mut file = File::create(&path).expect("Error opening file");
                     file.write_all(joined_users[..].as_bytes())
                         .expect("Unable to write data");
+
+                    let new_directory_path = format!("./server_privateFiles/{}", &words[1]);
+
+                    // create a new user directory under server_publicFiles
+                    fs::create_dir_all(new_directory_path).unwrap();
                 }
             } // ok
             Err(_) => {
@@ -119,7 +123,10 @@ fn main() {
 }
 
 fn login(mut stream: &TcpStream, givenUsername: &str, givenPassword: &str) -> Result<()> {
-    println!("Login - Username: {}, Password: {}", givenUsername, givenPassword);
+    println!(
+        "Login - Username: {}, Password: {}",
+        givenUsername, givenPassword
+    );
     let mut loginResult = String::from("Hello\n");
     // check if username exists
     let mut usernameFound = false;
@@ -144,17 +151,18 @@ fn login(mut stream: &TcpStream, givenUsername: &str, givenPassword: &str) -> Re
             println!("Username matched");
 
             // if it exists, check the text file and compare the hashpassword
-            match verify(givenPassword,user_info[1]) {
-                Ok(boo) => if boo {
-                    println!("Login Successful");
-                    loginResult = String::from("Login Successful\n");
-                } else {
-                    println!("Password Incorrect");
-                    loginResult = String::from("Password Incorrect\n");
-                },
+            match verify(givenPassword, user_info[1]) {
+                Ok(boo) => {
+                    if boo {
+                        println!("Login Successful");
+                        loginResult = String::from("Login Successful\n");
+                    } else {
+                        println!("Password Incorrect");
+                        loginResult = String::from("Password Incorrect\n");
+                    }
+                }
                 Err(e) => println!("{}", e),
             }
-
         }
     }
 
@@ -163,8 +171,6 @@ fn login(mut stream: &TcpStream, givenUsername: &str, givenPassword: &str) -> Re
         println!("Username not found");
         loginResult = String::from("Username not found\n");
     }
-
-
 
     match stream.write(&loginResult.as_bytes()) {
         Ok(_) => {
