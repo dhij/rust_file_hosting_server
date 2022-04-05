@@ -1,3 +1,4 @@
 user1=$2b$12$vMSqj.gqDeKwQwTjZronCeHvhyzZGHaFPKfTYP1R4dvZdHc4ZG1DW
 user2=$2b$12$L8Ty1FGxpN0cR4F1dzkm1ebTsPSXiTrlPB/sXmwk7Is0JFpQVCg4.
 user3=$2b$12$yIGp5jZWu.N10JRu/7UXf.V5s52NsjunIWhG8Ro6zQg6ywlRfX3Au
+user=$2b$12$LKN3f5dR4lxUTr/39CITqegjHxB7DuHYB7efHIZE35my6ETyzphrG
