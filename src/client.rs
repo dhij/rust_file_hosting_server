@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::fs::{File};
 use std::io::{self, BufRead, BufReader, Read, Result, Write};
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
@@ -49,7 +49,7 @@ fn command_loop() {
                         break;
                     }
                     let command_list =
-                "\n Commands: \n -- upload <file_path> \n -- download <file_name> \n -- help \n -- quit \n";
+                "\n Commands: \n -- upload <file_path> \n -- download <file_name> \n -- search (-p, -x) <file_name or file_extension> \n -- help \n -- quit \n";
 
                     loop {
                         println!("{}", command_list);
@@ -81,6 +81,31 @@ fn command_loop() {
                                 }
                                 if let Err(e) = receive_file(&stream, cmd[1]) {
                                     println!("Download failed: {:?}", e);
+                                }
+                            }
+                            "search" => {
+                                let public_option = cmd.contains(&"-p");
+                                let ext_option = cmd.contains(&"-x");
+                                if cmd.len() < 2 {
+                                    println!(
+                                        "Command needs to be in the form: search (-p, -x) <file_name or file_extension>"
+                                    );
+                                    continue;
+                                }
+                                else if public_option && ext_option && cmd.len() < 4 {
+                                    println!(
+                                        "Command needs to be in the form: search (-p, -x) <file_name or file_extension>"
+                                    );
+                                    continue;
+                                }
+                                else if (public_option && !ext_option) || (!public_option && ext_option) && cmd.len() < 3 {
+                                    println!(
+                                        "Command needs to be in the form: search (-p, -x) <file_name or file_extension>"
+                                    );
+                                    continue;
+                                }
+                                if let Err(e) = search(&stream, &cmd) {
+                                    println!("Search failed: {:?}", e);
                                 }
                             }
                             "help" => {
@@ -148,6 +173,9 @@ fn command_loop() {
                                 println!("Creating user failed: {:?}", e);
                                 println!("\nPlease try again: ");
                             }
+                        }
+                        "quit" => {
+                            break;
                         }
                         _ => {
                             print!("Please enter a valid command.");
@@ -219,6 +247,27 @@ fn create_user(mut stream: &TcpStream, username: &str, password: &str) -> Result
         }
         Err(e) => {
             println!("Error sending user information to server: {}", e);
+        }
+    }
+
+    Ok(())
+}
+
+fn search(mut stream: &TcpStream, command: &Vec<&str>) -> Result<()> {
+    let mut data = String::new();
+    
+    for cmd in command {
+        data.push_str(cmd);
+        data.push_str(" ");
+    }
+
+    match stream.write(&data.as_bytes().to_vec()) {
+        Ok(_) => {
+            println!("Search request sent");
+            ()
+        }
+        Err(e) => {
+            println!("Error sending search request to server: {}", e);
         }
     }
 

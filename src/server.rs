@@ -1,7 +1,7 @@
 extern crate bcrypt;
 
 use bcrypt::{hash, verify, DEFAULT_COST};
-use std::fs::File;
+use std::fs::{File, read_dir};
 use std::io::{BufRead, BufReader, Read, Result, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
@@ -39,6 +39,11 @@ fn handle_client(mut stream: TcpStream) {
                 } else if words[0] == "download" {
                     if let Err(e) = send_file(&stream, words[1]) {
                         println!("The file was not able to be downloaded: {:?}", e);
+                    }
+                } else if words[0] == "search" {
+                    println!("{:?}", &words[1..]);
+                    if let Err(e) = search(&stream, &words) {
+                        println!("Search Unsucessful: {:?}", e);
                     }
                 } else if words[0] == "login" {
 
@@ -176,6 +181,44 @@ fn login(mut stream: &TcpStream, givenUsername: &str, givenPassword: &str) -> Re
         }
     }
 
+    Ok(())
+}
+
+fn search(mut stream: &TcpStream, command: &Vec<&str>) -> Result<()> {
+    let public_option = command.contains(&"-p");
+    let ext_option = command.contains(&"-x");
+    let mut files_in_dir: Vec<String> = Vec::new();
+    let path: PathBuf;
+    if public_option {
+        path = PathBuf::from("./publicFiles/");
+    }
+    else {
+        path = PathBuf::from("./publicFiles/");
+    }
+    if !ext_option {
+        match read_dir(Path::new(&path)) {
+            Ok(dir_files) => {
+                for entry in dir_files {
+                    let entry = entry?;
+                    let file_path = entry.path();
+                    if !file_path.is_dir() {
+                        if let Ok(name) = entry.file_name().into_string() {
+                            if name.contains(command[1]) {
+                                files_in_dir.push(name.clone());
+                            }
+                        }
+                    }
+                }
+                for fileName in files_in_dir {
+                    println!("{}", fileName);
+
+                }
+            }
+            Err(e) => {
+                println!("Error searching for file: {}", e);
+            }
+        }
+    }
     Ok(())
 }
 
