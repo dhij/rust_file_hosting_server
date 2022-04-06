@@ -19,7 +19,7 @@ fn handle_client(mut stream: TcpStream) {
 
                 if words[0] == "upload" {
                     //get file path
-                    let mut path = PathBuf::from("./publicFiles/");
+                    let mut path = PathBuf::from("./server_publicFiles/");
 
                     //push filename to path
                     path.push(&words[2]);
@@ -185,46 +185,61 @@ fn login(mut stream: &TcpStream, givenUsername: &str, givenPassword: &str) -> Re
 }
 
 fn search(mut stream: &TcpStream, command: &Vec<&str>) -> Result<()> {
+    // if searching in public folder
     let public_option = command.contains(&"-p");
+    // if searching only extensions
     let ext_option = command.contains(&"-x");
+    // vector of file names matching given name
     let mut files_in_dir: Vec<String> = Vec::new();
+    // String which will be sent as server response
+    let mut data = String::new();
     let path: PathBuf;
     if public_option {
-        path = PathBuf::from("./publicFiles/");
+        path = PathBuf::from("./server_publicFiles/");
     }
     else {
-        path = PathBuf::from("./publicFiles/");
+        path = PathBuf::from("./server_publicFiles/");
     }
-    if !ext_option {
-        match read_dir(Path::new(&path)) {
-            Ok(dir_files) => {
-                for entry in dir_files {
-                    let entry = entry?;
-                    let file_path = entry.path();
-                    if !file_path.is_dir() {
-                        if let Ok(name) = entry.file_name().into_string() {
+    match read_dir(Path::new(&path)) {
+        Ok(dir_files) => {
+            for entry in dir_files {
+                let entry = entry?;
+                let file_path = entry.path();
+                if !file_path.is_dir() {
+                    if let Ok(name) = entry.file_name().into_string() {
+                        if ext_option {
+                            if let Some(ext) = file_path.extension() {
+                                if let Some(last_elem) = command.last() {
+                                    if ext.to_str() == Some(last_elem) {
+                                        files_in_dir.push(name.clone());
+                                    }
+                                }
+                            }
+                        }
+                        else {
                             if name.contains(command[1]) {
                                 files_in_dir.push(name.clone());
                             }
                         }
                     }
                 }
-                for fileName in files_in_dir {
-                    println!("{}", fileName);
-
-                }
             }
-            Err(e) => {
-                println!("Error searching for file: {}", e);
+            for file_name in files_in_dir {
+                data.push_str(&file_name);
+                data.push_str(" ");
             }
+            println!("{}", data);
+        }
+        Err(e) => {
+            println!("Error searching for file: {}", e);
         }
     }
     Ok(())
 }
 
 fn send_file(mut stream: &TcpStream, file_name: &str) -> Result<()> {
-    // currently downloads files only from publicFiles folder
-    let mut path = PathBuf::from("./publicFiles/");
+    // currently downloads files only from server_publicFiles folder
+    let mut path = PathBuf::from("./server_publicFiles/");
     path.push(file_name);
 
     let file = File::open(Path::new(&path)).expect("Error opening file");
