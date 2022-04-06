@@ -11,6 +11,7 @@ use std::thread;
 
 fn handle_client(mut stream: TcpStream) {
     let mut buffer = vec![0; 4096];
+    let mut current_user: String = String::from("");
 
     loop {
         match stream.read(&mut buffer) {
@@ -20,7 +21,8 @@ fn handle_client(mut stream: TcpStream) {
 
                 if words[0] == "upload" {
                     //get file path
-                    let mut path = PathBuf::from("./publicFiles/");
+                    //let mut path = PathBuf::from("./publicFiles/");
+                    let mut path = PathBuf::from(format!("./server_privateFiles/{}", current_user));
 
                     //push filename to path
                     path.push(&words[2]);
@@ -42,9 +44,11 @@ fn handle_client(mut stream: TcpStream) {
                         println!("The file was not able to be downloaded: {:?}", e);
                     }
                 } else if words[0] == "login" {
-                    if let Err(e) = login(&stream, words[1], words[2]) {
+                    if let Err(e) = login(&stream, &words[1], &words[2]) {
                         println!("Login Unsuccessful: {:?}", e);
                     }
+
+                    current_user = words[1].to_string();
                 } else if words[0] == "create" {
                     // hash the password
                     let hashed_password = hash(&words[2], DEFAULT_COST).unwrap();
