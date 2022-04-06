@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::fs::{File};
 use std::io::{self, BufRead, BufReader, Read, Result, Write};
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
@@ -49,7 +49,7 @@ fn command_loop() {
                         break;
                     }
                     let command_list =
-                "\n Commands: \n -- upload <file_path> \n -- download <file_name> \n -- help \n -- quit \n";
+                "\n Commands: \n -- upload <file_path> \n -- download <file_name> \n -- search (-p, -x) <file_name or file_extension> \n -- help \n -- quit \n";
 
                     loop {
                         println!("{}", command_list);
@@ -83,6 +83,31 @@ fn command_loop() {
                                     println!("Download failed: {:?}", e);
                                 }
                             }
+                            "search" => {
+                                let public_option = cmd.contains(&"-p");
+                                let ext_option = cmd.contains(&"-x");
+                                if cmd.len() < 2 {
+                                    println!(
+                                        "Command needs to be in the form: search (-p, -x) <file_name or file_extension>"
+                                    );
+                                    continue;
+                                }
+                                else if public_option && ext_option && cmd.len() < 4 {
+                                    println!(
+                                        "Command needs to be in the form: search (-p, -x) <file_name or file_extension>"
+                                    );
+                                    continue;
+                                }
+                                else if ((public_option && !ext_option) || (!public_option && ext_option)) && cmd.len() < 3 {
+                                    println!(
+                                        "Command needs to be in the form: search (-p, -x) <file_name or file_extension>"
+                                    );
+                                    continue;
+                                }
+                                if let Err(e) = search(&stream, &cmd) {
+                                    println!("Search failed: {:?}", e);
+                                }
+                            }
                             "help" => {
                                 println!("{}", command_list);
                             }
@@ -111,6 +136,7 @@ fn command_loop() {
                             if cmd.len() < 2 {
                                 println!("Command needs to be in the form: login <username>");
                                 println!("\nPlease try again: ");
+                                continue;
                             }
 
                             println!("Enter your password:");
@@ -148,6 +174,9 @@ fn command_loop() {
                                 println!("Creating user failed: {:?}", e);
                                 println!("\nPlease try again: ");
                             }
+                        }
+                        "quit" => {
+                            break;
                         }
                         _ => {
                             print!("Please enter a valid command.");
@@ -220,6 +249,60 @@ fn create_user(mut stream: &TcpStream, username: &str, password: &str) -> Result
         Err(e) => {
             println!("Error sending user information to server: {}", e);
         }
+    }
+
+    Ok(())
+}
+
+fn search(mut stream: &TcpStream, command: &Vec<&str>) -> Result<()> {
+    let mut data = String::new();
+    
+    for cmd in command {
+        data.push_str(cmd);
+        data.push_str(" ");
+    }
+
+    match stream.write(&data.as_bytes().to_vec()) {
+        Ok(_) => {
+            println!("Search request sent");
+            ()
+        }
+        Err(e) => {
+            println!("Error sending search request to server: {}", e);
+        }
+    }
+
+    //BufReader to read from steam, files to store files matching search criteria 
+    let mut reader = BufReader::new(stream);
+    let mut files = Vec::new();
+
+    //read until \n character into buffer
+    match reader.read_until(b'\n', &mut files) {
+        Ok(_) => (),
+        Err(e) => {
+            println!("Error reading file size: {}", e);
+        }
+    }
+    files.pop();
+
+    let files = std::str::from_utf8(&files).unwrap(); // pop the \n
+
+    let file_names: Vec<&str> = files.trim().split_whitespace().collect();
+    if file_names.len() == 0 {
+        println!("No files matching that input were found.\n");
+    }
+    else {
+        let mut result = String::from("Matching files: ");
+        for i in 0..file_names.len() {
+            result.push_str(&file_names[i]);
+            if i != file_names.len() -1 {
+                result.push_str(", ");
+            }
+            else {
+                result.push_str("\n");
+            }
+        }
+        println!("{}", result);
     }
 
     Ok(())

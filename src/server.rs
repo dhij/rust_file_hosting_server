@@ -2,7 +2,7 @@ extern crate bcrypt;
 
 use bcrypt::{hash, verify, DEFAULT_COST};
 use std::fs;
-use std::fs::File;
+use std::fs::{File, read_dir};
 use std::io::{BufRead, BufReader, Read, Result, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
@@ -21,7 +21,7 @@ fn handle_client(mut stream: TcpStream) {
 
                 if words[0] == "upload" {
                     //get file path
-                    //let mut path = PathBuf::from("./publicFiles/");
+                    //let mut path = PathBuf::from("./server_publicFiles/");
                     let mut path = PathBuf::from(format!("./server_privateFiles/{}", current_user));
 
                     //push filename to path
@@ -42,6 +42,10 @@ fn handle_client(mut stream: TcpStream) {
                 } else if words[0] == "download" {
                     if let Err(e) = send_file(&stream, words[1]) {
                         println!("The file was not able to be downloaded: {:?}", e);
+                    }
+                } else if words[0] == "search" {
+                    if let Err(e) = search(&stream, &words) {
+                        println!("Search Unsucessful: {:?}", e);
                     }
                 } else if words[0] == "login" {
                     if let Err(e) = login(&stream, &words[1], &words[2]) {
@@ -189,9 +193,74 @@ fn login(mut stream: &TcpStream, givenUsername: &str, givenPassword: &str) -> Re
     Ok(())
 }
 
+fn search(mut stream: &TcpStream, command: &Vec<&str>) -> Result<()> {
+    // if searching in public folder
+    let public_option = command.contains(&"-p");
+    // if searching only extensions
+    let ext_option = command.contains(&"-x");
+    // vector of file names matching given name
+    let mut files_in_dir: Vec<String> = Vec::new();
+    // String which will be sent as server response
+    let mut data = String::new();
+    let path: PathBuf;
+    // set path based on if searching public files or not
+    if public_option {
+        path = PathBuf::from("./server_publicFiles/");
+    }
+    else {
+        path = PathBuf::from(format!("./server_privateFiles/pranay/"));
+    }
+    match read_dir(Path::new(&path)) {
+        Ok(dir_files) => {
+            for entry in dir_files {
+                let entry = entry?;
+                let file_path = entry.path();
+                if !file_path.is_dir() {
+                    if let Ok(name) = entry.file_name().into_string() {
+                        if ext_option {
+                            if let Some(ext) = file_path.extension() {
+                                if let Some(last_elem) = command.last() {
+                                    if ext.to_str() == Some(last_elem) {
+                                        files_in_dir.push(name.clone());
+                                    }
+                                }
+                            }
+                        }
+                        else {
+                                if let Some(last_elem) = command.last() {
+                                    if name.contains(last_elem) {
+                                        files_in_dir.push(name.clone());
+                                    }
+                            }
+                        }
+                    }
+                }
+            }
+            for file_name in files_in_dir {
+                data.push_str(&file_name);
+                data.push_str(" ");
+            }
+        }
+        Err(e) => {
+            println!("Error searching for file: {}", e);
+        }
+    }
+    data.push_str("\n");
+    match stream.write(&data.as_bytes().to_vec()) {
+        Ok(_) => {
+            println!("Search results sent");
+            ()
+        }
+        Err(e) => {
+            println!("Error sending search request to client: {}", e);
+        }
+    }
+    Ok(())
+}
+
 fn send_file(mut stream: &TcpStream, file_name: &str) -> Result<()> {
-    // currently downloads files only from publicFiles folder
-    let mut path = PathBuf::from("./publicFiles/");
+    // currently downloads files only from server_publicFiles folder
+    let mut path = PathBuf::from("./server_publicFiles/");
     path.push(file_name);
 
     let file = File::open(Path::new(&path)).expect("Error opening file");
