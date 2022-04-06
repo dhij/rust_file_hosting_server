@@ -44,7 +44,7 @@ fn handle_client(mut stream: TcpStream) {
                         println!("The file was not able to be downloaded: {:?}", e);
                     }
                 } else if words[0] == "search" {
-                    if let Err(e) = search(&stream, &words) {
+                    if let Err(e) = search(&stream, &words, &current_user) {
                         println!("Search Unsucessful: {:?}", e);
                     }
                 } else if words[0] == "login" {
@@ -131,10 +131,10 @@ fn main() {
 }
 
 fn login(mut stream: &TcpStream, givenUsername: &str, givenPassword: &str) -> Result<()> {
-    println!(
-        "Login - Username: {}, Password: {}",
-        givenUsername, givenPassword
-    );
+    // println!(
+    //     "Login - Username: {}, Password: {}",
+    //     givenUsername, givenPassword
+    // );
     let mut loginResult = String::from("Hello\n");
     // check if username exists
     let mut usernameFound = false;
@@ -193,7 +193,7 @@ fn login(mut stream: &TcpStream, givenUsername: &str, givenPassword: &str) -> Re
     Ok(())
 }
 
-fn search(mut stream: &TcpStream, command: &Vec<&str>) -> Result<()> {
+fn search(mut stream: &TcpStream, command: &Vec<&str>, user: &str) -> Result<()> {
     // if searching in public folder
     let public_option = command.contains(&"-p");
     // if searching only extensions
@@ -208,7 +208,7 @@ fn search(mut stream: &TcpStream, command: &Vec<&str>) -> Result<()> {
         path = PathBuf::from("./server_publicFiles/");
     }
     else {
-        path = PathBuf::from(format!("./server_privateFiles/pranay/"));
+        path = PathBuf::from(format!("./server_privateFiles/{}/", user));
     }
     match read_dir(Path::new(&path)) {
         Ok(dir_files) => {
