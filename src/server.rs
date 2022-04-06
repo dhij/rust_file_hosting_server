@@ -41,7 +41,6 @@ fn handle_client(mut stream: TcpStream) {
                         println!("The file was not able to be downloaded: {:?}", e);
                     }
                 } else if words[0] == "search" {
-                    println!("{:?}", &words[1..]);
                     if let Err(e) = search(&stream, &words) {
                         println!("Search Unsucessful: {:?}", e);
                     }
@@ -194,11 +193,12 @@ fn search(mut stream: &TcpStream, command: &Vec<&str>) -> Result<()> {
     // String which will be sent as server response
     let mut data = String::new();
     let path: PathBuf;
+    // set path based on if searching public files or not
     if public_option {
         path = PathBuf::from("./server_publicFiles/");
     }
     else {
-        path = PathBuf::from("./server_publicFiles/");
+        path = PathBuf::from(format!("./server_privateFiles/pranay/"));
     }
     match read_dir(Path::new(&path)) {
         Ok(dir_files) => {
@@ -217,8 +217,10 @@ fn search(mut stream: &TcpStream, command: &Vec<&str>) -> Result<()> {
                             }
                         }
                         else {
-                            if name.contains(command[1]) {
-                                files_in_dir.push(name.clone());
+                                if let Some(last_elem) = command.last() {
+                                    if name.contains(last_elem) {
+                                        files_in_dir.push(name.clone());
+                                    }
                             }
                         }
                     }
@@ -228,10 +230,19 @@ fn search(mut stream: &TcpStream, command: &Vec<&str>) -> Result<()> {
                 data.push_str(&file_name);
                 data.push_str(" ");
             }
-            println!("{}", data);
         }
         Err(e) => {
             println!("Error searching for file: {}", e);
+        }
+    }
+    data.push_str("\n");
+    match stream.write(&data.as_bytes().to_vec()) {
+        Ok(_) => {
+            println!("Search results sent");
+            ()
+        }
+        Err(e) => {
+            println!("Error sending search request to client: {}", e);
         }
     }
     Ok(())

@@ -98,7 +98,7 @@ fn command_loop() {
                                     );
                                     continue;
                                 }
-                                else if (public_option && !ext_option) || (!public_option && ext_option) && cmd.len() < 3 {
+                                else if ((public_option && !ext_option) || (!public_option && ext_option)) && cmd.len() < 3 {
                                     println!(
                                         "Command needs to be in the form: search (-p, -x) <file_name or file_extension>"
                                     );
@@ -136,6 +136,7 @@ fn command_loop() {
                             if cmd.len() < 2 {
                                 println!("Command needs to be in the form: login <username>");
                                 println!("\nPlease try again: ");
+                                continue;
                             }
 
                             println!("Enter your password:");
@@ -269,6 +270,39 @@ fn search(mut stream: &TcpStream, command: &Vec<&str>) -> Result<()> {
         Err(e) => {
             println!("Error sending search request to server: {}", e);
         }
+    }
+
+    //BufReader to read from steam, files to store files matching search criteria 
+    let mut reader = BufReader::new(stream);
+    let mut files = Vec::new();
+
+    //read until \n character into buffer
+    match reader.read_until(b'\n', &mut files) {
+        Ok(_) => (),
+        Err(e) => {
+            println!("Error reading file size: {}", e);
+        }
+    }
+    files.pop();
+
+    let files = std::str::from_utf8(&files).unwrap(); // pop the \n
+
+    let file_names: Vec<&str> = files.trim().split_whitespace().collect();
+    if file_names.len() == 0 {
+        println!("No files matching that input were found.\n");
+    }
+    else {
+        let mut result = String::from("Matching files: ");
+        for i in 0..file_names.len() {
+            result.push_str(&file_names[i]);
+            if i != file_names.len() -1 {
+                result.push_str(", ");
+            }
+            else {
+                result.push_str("\n");
+            }
+        }
+        println!("{}", result);
     }
 
     Ok(())
