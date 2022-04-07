@@ -1,6 +1,7 @@
 extern crate bcrypt;
 
 use bcrypt::{hash, verify, DEFAULT_COST};
+use std::fmt::format;
 use std::fs;
 use std::fs::{File, read_dir};
 use std::io::{BufRead, BufReader, Read, Result, Write};
@@ -40,7 +41,7 @@ fn handle_client(mut stream: TcpStream) {
 
                     // println!("File uploaded");
                 } else if words[0] == "download" {
-                    if let Err(e) = send_file(&stream, words[1]) {
+                    if let Err(e) = send_file(&stream, &words, &current_user) {
                         println!("The file was not able to be downloaded: {:?}", e);
                     }
                 } else if words[0] == "search" {
@@ -258,13 +259,39 @@ fn search(mut stream: &TcpStream, command: &Vec<&str>, user: &str) -> Result<()>
     Ok(())
 }
 
-fn send_file(mut stream: &TcpStream, file_name: &str) -> Result<()> {
-    // currently downloads files only from server_publicFiles folder
-    let mut path = PathBuf::from("./server_publicFiles/");
-    path.push(file_name);
+fn send_file(mut stream: &TcpStream, command: &Vec<&str>, user: &str) -> Result<()> {
+    let mut path: PathBuf;
+    if command[1] == "-p" {
+        path = PathBuf::from("./server_publicFiles/");
+        path.push(command[2]);
+    }
+    else {
+        path = PathBuf::from("./server_privateFiles/");
+        path.push(format!("{}/", user));
+        path.push(command[1]);
+    }
 
-    let file = File::open(Path::new(&path)).expect("Error opening file");
-    let file_size = file.metadata().unwrap().len();
+    let file: File;
+    match File::open(Path::new(&path)) {
+        Ok(open_result) => {
+            file = open_result;
+        }
+        Err(e) => {
+            println!("Error opening file: {}", e);
+            stream.write("\n".as_bytes()).unwrap(); 
+            return Err(e);
+        }
+    }
+    let file_size;  
+    match file.metadata() {
+        Ok(meta) => {
+            file_size = meta.len();
+        }
+        Err(e) => {
+            println!("Error parsing file size: {}", e);
+            return Err(e);
+        }
+    }
 
     // file length string ending with \n so server knows when to stop reading
     let mut file_length = file_size.to_string();

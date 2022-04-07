@@ -49,7 +49,7 @@ fn command_loop() {
                         break;
                     }
                     let command_list =
-                "\n Commands: \n -- upload <file_path> \n -- download <file_name> \n -- search (-p, -x) <file_name or file_extension> \n -- help \n -- quit \n";
+                "\n Commands: \n -- upload <file_path> \n -- download (-p) <file_name> \n -- search (-p, -x) <file_name or file_extension> \n -- help \n -- quit \n";
 
                     loop {
                         println!("{}", command_list);
@@ -73,13 +73,20 @@ fn command_loop() {
                                 }
                             }
                             "download" => {
+                                let public_option = cmd.contains(&"-p");
                                 if cmd.len() < 2 {
                                     println!(
-                                        "Command needs to be in the form: download <file_name>"
+                                        "Command needs to be in the form: download (-p) <file_name>"
                                     );
                                     continue;
                                 }
-                                if let Err(e) = receive_file(&stream, cmd[1]) {
+                                else if public_option && cmd.len() < 3 {
+                                    println!(
+                                        "Command needs to be in the form: download (-p) <file_name>"
+                                    );
+                                    continue;
+                                }
+                                if let Err(e) = receive_file(&stream, &cmd) {
                                     println!("Download failed: {:?}", e);
                                 }
                             }
@@ -350,15 +357,18 @@ fn send_file(mut stream: &TcpStream, path: &str) -> Result<()> {
     Ok(())
 }
 
-fn receive_file(mut stream: &TcpStream, file_name: &str) -> Result<()> {
-    let mut command = String::from("download ");
+fn receive_file(mut stream: &TcpStream, command: &Vec<&str>) -> Result<()> {
+    let mut data = String::new();
+    
+    for cmd in command {
+        data.push_str(cmd);
+        data.push_str(" ");
+    }
 
-    //command will have downloaded filename
-    command.push_str(file_name);
-    println!("Command: {}", command);
+    println!("Command: {}", &data);
 
     // sending command to server
-    match stream.write(command.as_bytes()) {
+    match stream.write(&data.as_bytes().to_vec()) {
         Ok(_) => {
             println!("Download Command Sent");
             ()
@@ -371,10 +381,12 @@ fn receive_file(mut stream: &TcpStream, file_name: &str) -> Result<()> {
     let mut path = PathBuf::from("./client_dir/");
 
     //push filename to path
-    path.push(&file_name);
-
-    //create file
-    let mut file = std::fs::File::create(&path).expect("Error creating file");
+    if command[1] == "-p" {
+        path.push(command[2]);
+    }
+    else {
+        path.push(command[1]);
+    }
 
     //BufReader to read filesize, filesize_buf to store filesize
     let mut reader = BufReader::new(stream);
@@ -390,11 +402,22 @@ fn receive_file(mut stream: &TcpStream, file_name: &str) -> Result<()> {
 
     filesize_buf.pop(); // pop the \n
 
+    if filesize_buf.len() == 0 {
+        println!("No matching file found.");
+        return Ok(());
+    }
+
     //create buffer for file data
-    let filesize = str::from_utf8(&filesize_buf)
-        .unwrap()
-        .parse::<usize>()
-        .unwrap(); //parse into usize
+    let filesize;  
+    match str::from_utf8(&filesize_buf).unwrap().parse::<usize>() {
+        Ok(file_data) => {
+            filesize = file_data;
+        }
+        Err(e) => {
+            println!("Error parsing file: {}", e);
+            return Ok(());
+        }
+    }
 
     let mut file_data = vec![0; filesize as usize];
 
@@ -405,6 +428,9 @@ fn receive_file(mut stream: &TcpStream, file_name: &str) -> Result<()> {
             println!("Error reading file data: {}", e);
         }
     }
+
+    //create file
+    let mut file = std::fs::File::create(&path).expect("Error creating file");
 
     //write data into file opened earlier
     match file.write(&file_data[0..file_data.len()]) {
