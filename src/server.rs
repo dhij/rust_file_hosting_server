@@ -22,22 +22,43 @@ fn handle_client(mut stream: TcpStream) {
 
                 if words[0] == "upload" {
                     //get file path
+                    let mut public: bool = false;
                     //let mut path = PathBuf::from("./server_publicFiles/");
-                    let mut path = PathBuf::from(format!("./server_privateFiles/{}", current_user));
+                    let mut path: PathBuf = PathBuf::new();
 
-                    //push filename to path
-                    path.push(&words[2]);
+                    //push filename to path, either public or private
+                    if words[1] == "-p" {
+                        path = PathBuf::from("./server_publicFiles/");
+                        path.push(&words[3]);
+                        public = true;
+                    }
+                    else {
+                        path = PathBuf::from(format!("./server_privateFiles/{}/", current_user));
+                        path.push(&words[2]);
+                    }
+
 
                     //create file
                     let mut file = std::fs::File::create(&path).expect("Error creating file");
 
                     //write data into file opened earlier
-                    match file.write(words[3..].join(" ").as_bytes()) {
-                        Ok(_) => (),
-                        Err(e) => {
-                            println!("Error writing to file: {}", e);
+                    if public {
+                        match file.write(words[4..].join(" ").as_bytes()) {
+                            Ok(_) => (),
+                            Err(e) => {
+                                println!("Error writing to file: {}", e);
+                            }
                         }
                     }
+                    else {
+                        match file.write(words[3..].join(" ").as_bytes()) {
+                            Ok(_) => (),
+                            Err(e) => {
+                                println!("Error writing to file: {}", e);
+                            }
+                        }
+                    }
+
 
                     // println!("File uploaded");
                 } else if words[0] == "download" {

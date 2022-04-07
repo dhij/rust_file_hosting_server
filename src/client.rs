@@ -49,7 +49,7 @@ fn command_loop() {
                         break;
                     }
                     let command_list =
-                "\n Commands: \n -- upload <file_path> \n -- download (-p) <file_name> \n -- search (-p, -x) <file_name or file_extension> \n -- help \n -- quit \n";
+                "\n Commands: \n -- upload (-p) <file_path> \n -- download (-p) <file_name> \n -- search (-p, -x) <file_name or file_extension> \n -- help \n -- quit \n";
 
                     loop {
                         println!("{}", command_list);
@@ -62,12 +62,25 @@ fn command_loop() {
 
                         match cmd[0] {
                             "upload" => {
+                                let publicFlag: bool = cmd.contains(&"-p");
+                                let mut filePath= "";
+                                if publicFlag{
+                                    filePath = cmd[2];
+                                }
+                                else {
+                                    filePath = cmd[1];
+                                }
                                 if cmd.len() < 2 {
                                     println!("Command needs to be in the form: upload <file_path>");
                                     println!("\nPlease try again: ");
                                     continue;
                                 }
-                                if let Err(e) = send_file(&stream, cmd[1]) {
+                                else if  cmd.len() < 3 && publicFlag {
+                                    println!("Command needs to be in the form: upload (-p) <file_path>");
+                                    println!("\nPlease try again: ");
+                                    continue;
+                                }
+                                if let Err(e) = send_file(&stream, filePath, publicFlag) {
                                     println!("Upload failed: {:?}", e);
                                     println!("\nPlease try again: ");
                                 }
@@ -315,7 +328,7 @@ fn search(mut stream: &TcpStream, command: &Vec<&str>) -> Result<()> {
     Ok(())
 }
 
-fn send_file(mut stream: &TcpStream, path: &str) -> Result<()> {
+fn send_file(mut stream: &TcpStream, path: &str, publicFlag: bool) -> Result<()> {
     let file = File::open(Path::new(path))?;
     let file_size = file.metadata().unwrap().len();
     let path_names: Vec<&str> = path.split("/").collect();
@@ -337,10 +350,19 @@ fn send_file(mut stream: &TcpStream, path: &str) -> Result<()> {
         }
     };
 
-    let mut data = format!("upload {} {} ", file_size, file_name)
-        .as_bytes()
-        .to_vec();
-    data.extend(&buffer);
+    let mut data:Vec<u8> = Vec::new();
+    if publicFlag {
+        data = format!("upload -p {} {} ", file_size, file_name)
+            .as_bytes()
+            .to_vec();
+        data.extend(&buffer);
+    }
+    else {
+        data = format!("upload {} {} ", file_size, file_name)
+            .as_bytes()
+            .to_vec();
+        data.extend(&buffer);
+    }
 
     // sending file data
     match stream.write(&data) {
