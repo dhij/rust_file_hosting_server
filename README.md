@@ -18,31 +18,85 @@ cargo run --bin client
 ```
 ## CLI Examples
 
-To Connect:
+To connect:
 ```
 Commands: connect | quit
 
 connect
 ```
 
-To Upload a File from the client_dir Directory
+
+Commands available upon connection:
 ```
 Commands: 
--- upload <file_path> 
--- download <file_name> 
+-- login <username> 
+-- create <username> 
 -- help 
--- quit 
- 
+-- quit
+```
+
+### Login and Create User
+
+Create a new username & enter a new password when prompted
+```
+create user1
+
+Enter a new password:
+```
+
+Login & enter a password when prompted
+```
+login user1
+
+Enter your password:
+```
+
+Commands available once logged in:
+```
+Commands: 
+-- upload (-p) <file_path> 
+-- download (-p) <file_name> 
+-- search (-p, -x) <file_name or file_extension> 
+-- help 
+-- quit
+```
+
+### Upload
+
+Upload a file from client_dir directory to the private directory in the server under server_privateFiles/\<username\>/
+```
 upload ../client_dir/test1.txt
 ```
 
-To Download a File from publicFiles Directory
+Upload a file to the public directory server_publicFiles/
 ```
-Commands: 
--- upload <file_path> 
--- download <file_name> 
--- help 
--- quit 
+upload -p ../client_dir/test1.txt
+```
 
-download serverFile.txt
+### Download
+
+Download a file from the private directory in the server under server_privateFiles/\<username\>/
+```
+download test1.txt
+```
+
+Download a file from the public directory server_publicFiles/
+```
+download -p serverFile.txt
+```
+
+### Search
+
+Search a file by filename or extension from the private directory in the server under server_privateFiles/\<username\>/
+```
+search test1.txt
+
+search -x txt
+```
+
+Search a file by filename or extension from the public directory server_publicFiles/
+```
+search -p something.pdf
+
+search -p -x pdf
 ```
