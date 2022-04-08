@@ -400,7 +400,7 @@ fn receive_file(mut stream: &TcpStream, command: &Vec<&str>) -> Result<()> {
         }
     }
 
-    let mut path = PathBuf::from("./client_dir/");
+    let mut path = PathBuf::from("../client_dir/");
 
     //push filename to path
     if command[1] == "-p" {

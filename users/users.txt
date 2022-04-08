@@ -1,6 +1,3 @@
-user1=$2b$12$vMSqj.gqDeKwQwTjZronCeHvhyzZGHaFPKfTYP1R4dvZdHc4ZG1DW
-user2=$2b$12$L8Ty1FGxpN0cR4F1dzkm1ebTsPSXiTrlPB/sXmwk7Is0JFpQVCg4.
-user3=$2b$12$yIGp5jZWu.N10JRu/7UXf.V5s52NsjunIWhG8Ro6zQg6ywlRfX3Au
-user=$2b$12$LKN3f5dR4lxUTr/39CITqegjHxB7DuHYB7efHIZE35my6ETyzphrG
-pranay=$2b$12$7zYTtvzfoOdNPJkXWGux1uf7d0sSyzSGozqR.bju9NILHYGNCugta
-marcos=$2b$12$dyW4ZxzQiX0QFZz.2Nu6T.yngmZaabgIR0Ku6U/tAkAGcm12dMI6q
+david=$2b$12$kVxMFsCAOhc.ZA8Aktn5YOO0l6VMyIKylBlyCGvqrjdLtlh8g97P2
+pranay=$2b$12$/6Ra2HDAFCYx8D27Olu/CuGzy8N95StzFJgXAHXu7bYmb7NwzZY..
+marcos=$2b$12$yeWAygxiS0oeXwNRTBMNYO7K/SytZCaQcz90pWAaVSt1xHpfxHgwu

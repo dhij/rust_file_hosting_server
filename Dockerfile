@@ -15,7 +15,9 @@ COPY src ./src
 COPY ./Cargo.toml .
 COPY ./Cargo.lock .
 COPY client_dir ./client_dir
-COPY publicFiles ./publicFiles
+COPY server_publicFiles ./server_publicFiles
+COPY server_privateFiles ./server_privateFiles
+COPY users ./users
 COPY ./init.sh ./init.sh
 
 # Compile rust files in debug mode
