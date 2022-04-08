@@ -26,7 +26,7 @@ connect
 ```
 
 
-Commands available upon connection:
+### Commands available upon connection:
 ```
 Commands: 
 -- login <username> 
@@ -51,7 +51,7 @@ login user1
 Enter your password:
 ```
 
-Commands available once logged in:
+### Commands available once logged in:
 ```
 Commands: 
 -- upload (-p) <file_path> 
