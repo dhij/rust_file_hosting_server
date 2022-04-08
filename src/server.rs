@@ -20,6 +20,10 @@ fn handle_client(mut stream: TcpStream) {
                 let command = String::from_utf8_lossy(&buffer[0..size]);
                 let words: Vec<&str> = command.trim().split_whitespace().collect();
 
+                if words.len() == 0 {
+                    continue;
+                }
+
                 if words[0] == "upload" {
                     //get file path
                     let mut public: bool = false;
