@@ -38,6 +38,7 @@ Commands:
 ### Login and Create User
 
 Create a new username & enter a new password when prompted
+- Upon successful creation of a username, a private directory is created under the server_privateFiles directory with the given username
 ```
 create user1
 
