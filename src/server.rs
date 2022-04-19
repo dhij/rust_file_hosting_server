@@ -364,13 +364,11 @@ fn send_file(
         }
     };
 
-    println!("BEFORE DECRYPTION: {:?}", buffer);
     let mut decrypted: Vec<u8> = Vec::new();
 
     // decrypt the file if downloaded from the private directory
     if command[1] != "-p" {
         decrypted = decrypt_file(&buffer, key, nonce);
-        println!("AFTER DECRYPTION: {:?}", decrypted);
 
         match stream.write(&decrypted) {
             Ok(_) => {
