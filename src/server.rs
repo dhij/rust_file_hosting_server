@@ -1,9 +1,15 @@
 extern crate bcrypt;
 
+use anyhow::anyhow;
 use bcrypt::{hash, verify, DEFAULT_COST};
-use std::fmt::format;
+use chacha20poly1305::{
+    aead::{Aead, NewAead},
+    XChaCha20Poly1305,
+};
+use rand::rngs::OsRng;
+use rand::RngCore;
 use std::fs;
-use std::fs::{File, read_dir};
+use std::fs::{read_dir, File};
 use std::io::{BufRead, BufReader, Read, Result, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
@@ -13,6 +19,11 @@ use std::thread;
 fn handle_client(mut stream: TcpStream) {
     let mut buffer = vec![0; 4096];
     let mut current_user: String = String::from("");
+
+    let mut key = [0u8; 32];
+    let mut nonce = [0u8; 24];
+    OsRng.fill_bytes(&mut key);
+    OsRng.fill_bytes(&mut nonce);
 
     loop {
         match stream.read(&mut buffer) {
@@ -35,12 +46,10 @@ fn handle_client(mut stream: TcpStream) {
                         path = PathBuf::from("./server_publicFiles/");
                         path.push(&words[3]);
                         public = true;
-                    }
-                    else {
+                    } else {
                         path = PathBuf::from(format!("./server_privateFiles/{}/", current_user));
                         path.push(&words[2]);
                     }
-
 
                     //create file
                     let mut file = std::fs::File::create(&path).expect("Error creating file");
@@ -53,9 +62,12 @@ fn handle_client(mut stream: TcpStream) {
                                 println!("Error writing to file: {}", e);
                             }
                         }
-                    }
-                    else {
-                        match file.write(words[3..].join(" ").as_bytes()) {
+                    } else {
+                        println!("BEFORE ENCRYPTION: {}", words[3..].join(" "));
+                        let encrypted = encrypt_file(words[3..].join(" "), &key, &nonce);
+                        println!("AFTER ENCRYPTION: {:?}", encrypted);
+
+                        match file.write(&encrypted) {
                             Ok(_) => (),
                             Err(e) => {
                                 println!("Error writing to file: {}", e);
@@ -63,10 +75,9 @@ fn handle_client(mut stream: TcpStream) {
                         }
                     }
 
-
                     // println!("File uploaded");
                 } else if words[0] == "download" {
-                    if let Err(e) = send_file(&stream, &words, &current_user) {
+                    if let Err(e) = send_file(&stream, &words, &current_user, &key, &nonce) {
                         println!("The file was not able to be downloaded: {:?}", e);
                     }
                 } else if words[0] == "search" {
@@ -232,8 +243,7 @@ fn search(mut stream: &TcpStream, command: &Vec<&str>, user: &str) -> Result<()>
     // set path based on if searching public files or not
     if public_option {
         path = PathBuf::from("./server_publicFiles/");
-    }
-    else {
+    } else {
         path = PathBuf::from(format!("./server_privateFiles/{}/", user));
     }
     match read_dir(Path::new(&path)) {
@@ -251,12 +261,11 @@ fn search(mut stream: &TcpStream, command: &Vec<&str>, user: &str) -> Result<()>
                                     }
                                 }
                             }
-                        }
-                        else {
-                                if let Some(last_elem) = command.last() {
-                                    if name.contains(last_elem) {
-                                        files_in_dir.push(name.clone());
-                                    }
+                        } else {
+                            if let Some(last_elem) = command.last() {
+                                if name.contains(last_elem) {
+                                    files_in_dir.push(name.clone());
+                                }
                             }
                         }
                     }
@@ -284,13 +293,18 @@ fn search(mut stream: &TcpStream, command: &Vec<&str>, user: &str) -> Result<()>
     Ok(())
 }
 
-fn send_file(mut stream: &TcpStream, command: &Vec<&str>, user: &str) -> Result<()> {
+fn send_file(
+    mut stream: &TcpStream,
+    command: &Vec<&str>,
+    user: &str,
+    key: &[u8; 32],
+    nonce: &[u8; 24],
+) -> Result<()> {
     let mut path: PathBuf;
     if command[1] == "-p" {
         path = PathBuf::from("./server_publicFiles/");
         path.push(command[2]);
-    }
-    else {
+    } else {
         path = PathBuf::from("./server_privateFiles/");
         path.push(format!("{}/", user));
         path.push(command[1]);
@@ -303,11 +317,11 @@ fn send_file(mut stream: &TcpStream, command: &Vec<&str>, user: &str) -> Result<
         }
         Err(e) => {
             println!("Error opening file: {}", e);
-            stream.write("\n".as_bytes()).unwrap(); 
+            stream.write("\n".as_bytes()).unwrap();
             return Err(e);
         }
     }
-    let file_size;  
+    let file_size;
     match file.metadata() {
         Ok(meta) => {
             file_size = meta.len();
@@ -335,6 +349,7 @@ fn send_file(mut stream: &TcpStream, command: &Vec<&str>, user: &str) -> Result<
 
     // read data from file to send to client
     let mut buffer = Vec::new();
+
     match File::open(&path) {
         Ok(mut file) => {
             match file.read_to_end(&mut buffer) {
@@ -349,17 +364,58 @@ fn send_file(mut stream: &TcpStream, command: &Vec<&str>, user: &str) -> Result<
         }
     };
 
-    // send file data
-    match stream.write(&buffer) {
-        Ok(_) => {
-            println!("File data sent");
-            ()
+    println!("BEFORE DECRYPTION: {:?}", buffer);
+    let mut decrypted: Vec<u8> = Vec::new();
+
+    // decrypt the file if downloaded from the private directory
+    if command[1] != "-p" {
+        decrypted = decrypt_file(&buffer, key, nonce);
+        println!("AFTER DECRYPTION: {:?}", decrypted);
+
+        match stream.write(&decrypted) {
+            Ok(_) => {
+                println!("Decrypted file data sent");
+                ()
+            }
+            Err(e) => {
+                println!("Error sending file data to server: {}", e);
+            }
         }
-        Err(e) => {
-            println!("Error sending file data to server: {}", e);
+    } else {
+        // send file data without decrypting
+        match stream.write(&buffer) {
+            Ok(_) => {
+                println!("File data sent");
+                ()
+            }
+            Err(e) => {
+                println!("Error sending file data to server: {}", e);
+            }
         }
     }
 
     println!("File sent successfully!");
     Ok(())
+}
+
+fn encrypt_file(file_data: String, key: &[u8; 32], nonce: &[u8; 24]) -> Vec<u8> {
+    let cipher = XChaCha20Poly1305::new(key.into());
+
+    let encrypted_file = cipher
+        .encrypt(nonce.into(), file_data.as_ref())
+        .map_err(|err| anyhow!("Encrypting file: {}", err))
+        .unwrap();
+
+    encrypted_file
+}
+
+fn decrypt_file(file_data: &Vec<u8>, key: &[u8; 32], nonce: &[u8; 24]) -> Vec<u8> {
+    let cipher = XChaCha20Poly1305::new(key.into());
+
+    let decrypted_file = cipher
+        .decrypt(nonce.into(), file_data.as_ref())
+        .map_err(|err| anyhow!("Decrypting file: {}", err))
+        .unwrap();
+
+    decrypted_file
 }
