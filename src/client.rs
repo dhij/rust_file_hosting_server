@@ -49,7 +49,7 @@ fn command_loop() {
                         break;
                     }
                     let command_list =
-                "\n Commands: \n -- upload (-p) <file_path> \n -- download (-p) <file_name> \n -- search (-p, -x) <file_name or file_extension> \n -- help \n -- quit \n";
+                "\n Commands: \n -- upload (-p) <file_path> \n -- download (-p) <file_name> \n -- search (-p, -x) <file_name or file_extension> \n -- makePrivate <file_name> \n -- makePublic <file_name> \n-- help \n -- quit \n";
 
                     loop {
                         println!("{}", command_list);
@@ -126,6 +126,28 @@ fn command_loop() {
                                 }
                                 if let Err(e) = search(&stream, &cmd) {
                                     println!("Search failed: {:?}", e);
+                                }
+                            }
+                            "makePublic" => {
+                                if cmd.len() < 2 {
+                                    println!(
+                                        "Command needs to be in the form: makePublic <file_name>"
+                                    );
+                                    continue;
+                                }
+                                if let Err(e) = makePublic(&stream, cmd[1]){
+                                    println!("Make public failed: {:?}", e);
+                                }
+                            }
+                            "makePrivate" => {
+                                if cmd.len() < 2 {
+                                    println!(
+                                        "Command needs to be in the form: makePrivate <file_name>"
+                                    );
+                                    continue;
+                                }
+                                if let Err(e) = makePrivate(&stream, cmd[1]){
+                                    println!("Make private failed: {:?}", e);
                                 }
                             }
                             "help" => {
@@ -210,6 +232,44 @@ fn command_loop() {
         }
     }
     println!("Connection terminated.");
+}
+
+fn makePublic(mut stream: &TcpStream, filename: &str) -> Result<()> {
+
+    let data = format!("makePublic {}", filename)
+        .as_bytes()
+        .to_vec();
+
+    match stream.write(&data){
+        Ok(_) => {
+            println!("File change information sent");
+            ()
+        }
+        Err(e) => {
+            println!("Error sending file change information to server: {}", e);
+        }
+    }
+
+    Ok(())
+}
+
+fn makePrivate(mut stream: &TcpStream, filename: &str) -> Result<()> {
+
+    let data = format!("makePrivate {}", filename)
+        .as_bytes()
+        .to_vec();
+
+    match stream.write(&data){
+        Ok(_) => {
+            println!("File change information sent");
+            ()
+        }
+        Err(e) => {
+            println!("Error sending file change information to server: {}", e);
+        }
+    }
+
+    Ok(())
 }
 
 fn login(mut stream: &TcpStream, username: &str, password: &str) -> bool {
