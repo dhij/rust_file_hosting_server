@@ -90,6 +90,14 @@ fn handle_client(mut stream: TcpStream) {
                     }
 
                     current_user = words[1].to_string();
+                } else if words[0] == "makePublic" {
+                    if let Err(e) = makePublic(&stream, &words[1], &current_user) {
+                        println!("File visibility Change Unsuccessful: {:?}", e);
+                    }
+                } else if words[0] == "makePrivate" {
+                    if let Err(e) = makePrivate(&stream, &words[1], &current_user) {
+                        println!("File visibility Change Unsuccessful: {:?}", e);
+                    }
                 } else if words[0] == "create" {
                     // hash the password
                     let hashed_password = hash(&words[2], DEFAULT_COST).unwrap();
@@ -165,6 +173,32 @@ fn main() {
             }
         }
     }
+}
+
+fn makePublic(mut stream: &TcpStream, filename: &str, user: &str) -> Result<()> {
+
+    let publicPath = PathBuf::from(format!("./server_publicFiles/{}", filename));
+    let privatePath = PathBuf::from(format!("./server_privateFiles/{}/{}", user, filename));
+
+    //creates file to copy to
+    let mut publicFile = std::fs::File::create(&publicPath).expect("Error creating file");
+
+    fs::copy(privatePath, publicPath)?;
+
+    Ok(())
+}
+
+fn makePrivate(mut stream: &TcpStream, filename: &str, user: &str) -> Result<()> {
+
+    let publicPath = PathBuf::from(format!("./server_publicFiles/{}", filename));
+    let privatePath = PathBuf::from(format!("./server_privateFiles/{}/{}", user, filename));
+
+    //creates file to copy to
+    let mut publicFile = std::fs::File::create(&privatePath).expect("Error creating file");
+
+    fs::copy(publicPath, privatePath)?;
+
+    Ok(())
 }
 
 fn login(mut stream: &TcpStream, givenUsername: &str, givenPassword: &str) -> Result<()> {
