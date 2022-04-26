@@ -202,7 +202,6 @@ fn main() {
 
 // function to handle copying file from user's private storage to public
 fn makePublic(mut stream: &TcpStream, filename: &str, user: &str) -> Result<()> {
-
     let publicPath = PathBuf::from(format!("./server_publicFiles/{}", filename));
     let privatePath = PathBuf::from(format!("./server_privateFiles/{}/{}", user, filename));
 
@@ -214,9 +213,8 @@ fn makePublic(mut stream: &TcpStream, filename: &str, user: &str) -> Result<()> 
     Ok(())
 }
 
-// function to handle copying file from public to user's private storage 
+// function to handle copying file from public to user's private storage
 fn makePrivate(mut stream: &TcpStream, filename: &str, user: &str) -> Result<()> {
-
     let publicPath = PathBuf::from(format!("./server_publicFiles/{}", filename));
     let privatePath = PathBuf::from(format!("./server_privateFiles/{}/{}", user, filename));
 
@@ -393,15 +391,24 @@ fn send_file(
             return Err(e);
         }
     }
-    let file_size;
-    match file.metadata() {
-        Ok(meta) => {
-            file_size = meta.len();
+
+    let mut file_size;
+    let mut decrypted: Vec<u8> = Vec::new();
+
+    if command[1] == "-p" {
+        match file.metadata() {
+            Ok(meta) => {
+                file_size = meta.len();
+            }
+            Err(e) => {
+                println!("Error parsing file size: {}", e);
+                return Err(e);
+            }
         }
-        Err(e) => {
-            println!("Error parsing file size: {}", e);
-            return Err(e);
-        }
+    } else {
+        let file_data = fs::read(&path)?;
+        decrypted = decrypt_file(&file_data, key, nonce);
+        file_size = decrypted.len() as u64;
     }
 
     // file length string ending with \n so server knows when to stop reading
@@ -436,12 +443,8 @@ fn send_file(
         }
     };
 
-    let mut decrypted: Vec<u8> = Vec::new();
-
     // decrypt the file if downloaded from the private directory
     if command[1] != "-p" {
-        decrypted = decrypt_file(&buffer, key, nonce);
-
         match stream.write(&decrypted) {
             Ok(_) => {
                 println!("Decrypted file data sent");
