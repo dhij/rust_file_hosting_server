@@ -11,11 +11,14 @@ fn main() {
 
     // loop for connecting to server or quitting, can later be modified for variable ports
     loop {
+        // buffer for reading stdin
         let mut line = String::new();
         io::stdin().read_line(&mut line).expect("Error on read");
         println!("Executing CMD: {}", line);
+        // match on input read from stdin
         match line[..].trim() {
             "connect" => {
+                // start user loop after connecting
                 command_loop();
                 println!("You may connect to the server again or exit the program.");
                 println!("\n Commands: connect | quit \n");
@@ -32,10 +35,12 @@ fn main() {
     println!("Exiting the program...");
 }
 
+// function to handle user interaction loop after connecting to server
 fn command_loop() {
     let mut quit: bool = false;
     let mut authenticated_user = false;
 
+    // try connecting to server address
     match TcpStream::connect("localhost:7878") {
         Ok(stream) => {
             println!(
@@ -44,10 +49,12 @@ fn command_loop() {
             );
 
             loop {
+                // user needs to be authenticated to access commands
                 if authenticated_user {
                     if quit == true {
                         break;
                     }
+                    // list of possible commands for authenticated users
                     let command_list =
                 "\n Commands: \n -- upload (-p) <file_path> \n -- download (-p) <file_name> \n -- search (-p, -x) <file_name or file_extension> \n -- makePrivate <file_name> \n -- makePublic <file_name> \n-- help \n -- quit \n";
 
@@ -58,8 +65,10 @@ fn command_loop() {
                         io::stdin()
                             .read_line(&mut user_input)
                             .expect("Error on read");
+                        // split command from input into tokens
                         let cmd: Vec<&str> = user_input.trim().split_whitespace().collect();
 
+                        // first token should be the actual command
                         match cmd[0] {
                             "upload" => {
                                 let publicFlag: bool = cmd.contains(&"-p");
@@ -163,7 +172,7 @@ fn command_loop() {
                         }
                     }
                 } else {
-                    // not authenticated
+                    // commands for unauthenticated user
                     let command_list =
                 "\n Commands: \n -- login <username> \n -- create <username> \n -- help \n -- quit \n";
                     println!("{}", command_list);
@@ -175,7 +184,7 @@ fn command_loop() {
                     let cmd: Vec<&str> = user_input.trim().split_whitespace().collect();
                     match cmd[0] {
                         "login" => {
-                            if cmd.len() < 2 {
+                            if cmd.len() < 2 || cmd.len() > 2{
                                 println!("Command needs to be in the form: login <username>");
                                 println!("\nPlease try again: ");
                                 continue;
@@ -208,7 +217,7 @@ fn command_loop() {
                                 .read_line(&mut password_input)
                                 .expect("Error on reading the password");
 
-                            if cmd.len() < 2 {
+                            if cmd.len() < 2 || cmd.len() > 2 {
                                 println!("Command needs to be in the form: create <username>");
                                 println!("\nPlease try again: ");
                             }
@@ -272,14 +281,17 @@ fn makePrivate(mut stream: &TcpStream, filename: &str) -> Result<()> {
     Ok(())
 }
 
+// function to handle the login operation
 fn login(mut stream: &TcpStream, username: &str, password: &str) -> bool {
 
     let mut serverResult: bool = false;
 
+    // format the information needed to be sent to the server
     let data = format!("login {} {}", username, password)
         .as_bytes()
         .to_vec();
 
+    // send formatted command to server through tcpstream
     match stream.write(&data) {
         Ok(_) => {
             println!("Login information sent");
@@ -334,14 +346,17 @@ fn create_user(mut stream: &TcpStream, username: &str, password: &str) -> Result
     Ok(())
 }
 
+// function to handle the search operation for client
 fn search(mut stream: &TcpStream, command: &Vec<&str>) -> Result<()> {
     let mut data = String::new();
     
+    // push all necessary info to string
     for cmd in command {
         data.push_str(cmd);
         data.push_str(" ");
     }
 
+    // send necessary info to server through stream
     match stream.write(&data.as_bytes().to_vec()) {
         Ok(_) => {
             println!("Search request sent");
@@ -352,7 +367,7 @@ fn search(mut stream: &TcpStream, command: &Vec<&str>) -> Result<()> {
         }
     }
 
-    //BufReader to read from steam, files to store files matching search criteria 
+    //BufReader to read from steam, vector to store file names matching search criteria 
     let mut reader = BufReader::new(stream);
     let mut files = Vec::new();
 
@@ -363,11 +378,13 @@ fn search(mut stream: &TcpStream, command: &Vec<&str>) -> Result<()> {
             println!("Error reading file size: {}", e);
         }
     }
+    // pop trailing \n
     files.pop();
 
-    let files = std::str::from_utf8(&files).unwrap(); // pop the \n
+    let files = std::str::from_utf8(&files).unwrap(); 
 
     let file_names: Vec<&str> = files.trim().split_whitespace().collect();
+    // print results of search function
     if file_names.len() == 0 {
         println!("No files matching that input were found.\n");
     }
@@ -389,9 +406,13 @@ fn search(mut stream: &TcpStream, command: &Vec<&str>) -> Result<()> {
 }
 
 fn send_file(mut stream: &TcpStream, path: &str, publicFlag: bool) -> Result<()> {
+    // file to sent
     let file = File::open(Path::new(path))?;
+    // store file size from metadata
     let file_size = file.metadata().unwrap().len();
+    // collect all tokens in path
     let path_names: Vec<&str> = path.split("/").collect();
+    // file name is last token
     let file_name = path_names[path_names.len() - 1];
 
     // Reading data from file to send to server

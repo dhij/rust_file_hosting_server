@@ -16,8 +16,10 @@ use std::path::{Path, PathBuf};
 use std::str;
 use std::thread;
 
+// function to handle all user commands after connection
 fn handle_client(mut stream: TcpStream) {
     let mut buffer = vec![0; 4096];
+    // keep track of currently logged in user
     let mut current_user: String = String::from("");
 
     let mut key = [0u8; 32];
@@ -26,15 +28,19 @@ fn handle_client(mut stream: TcpStream) {
     OsRng.fill_bytes(&mut nonce);
 
     loop {
+        // every loop, read into buffer from TCP stream
         match stream.read(&mut buffer) {
             Ok(size) => {
+                // commands sent to server by client
                 let command = String::from_utf8_lossy(&buffer[0..size]);
                 let words: Vec<&str> = command.trim().split_whitespace().collect();
 
+                // if command is empty, continue to next loop to prevent out of bound errors
                 if words.len() == 0 {
                     continue;
                 }
 
+                // handle different commands
                 if words[0] == "upload" {
                     //get file path
                     let mut public: bool = false;
@@ -159,6 +165,7 @@ fn handle_client(mut stream: TcpStream) {
 }
 
 fn main() {
+    // tcp socket to communicate with client on
     let listener = TcpListener::bind("localhost:7878").unwrap();
 
     println!("Server listening on: {}", listener.local_addr().unwrap());
@@ -166,6 +173,7 @@ fn main() {
         match stream {
             Ok(stream) => {
                 // println!("New connection: {}", stream.peer_addr().unwrap());
+                // start handling the client in a new thread
                 thread::spawn(move || handle_client(stream));
             }
             Err(e) => {
@@ -175,6 +183,7 @@ fn main() {
     }
 }
 
+// function to handle copying file from user's private storage to public
 fn makePublic(mut stream: &TcpStream, filename: &str, user: &str) -> Result<()> {
 
     let publicPath = PathBuf::from(format!("./server_publicFiles/{}", filename));
@@ -188,6 +197,7 @@ fn makePublic(mut stream: &TcpStream, filename: &str, user: &str) -> Result<()> 
     Ok(())
 }
 
+// function to handle copying file from public to user's private storage 
 fn makePrivate(mut stream: &TcpStream, filename: &str, user: &str) -> Result<()> {
 
     let publicPath = PathBuf::from(format!("./server_publicFiles/{}", filename));
@@ -201,6 +211,7 @@ fn makePrivate(mut stream: &TcpStream, filename: &str, user: &str) -> Result<()>
     Ok(())
 }
 
+// function to perform login
 fn login(mut stream: &TcpStream, givenUsername: &str, givenPassword: &str) -> Result<()> {
     // println!(
     //     "Login - Username: {}, Password: {}",
@@ -222,6 +233,7 @@ fn login(mut stream: &TcpStream, givenUsername: &str, givenPassword: &str) -> Re
         existing_users.push(line);
     }
 
+    // check if user is found in list of existing users
     for username in existing_users.clone().into_iter() {
         let user_info: Vec<&str> = username[..].split("=").collect();
 
@@ -251,6 +263,7 @@ fn login(mut stream: &TcpStream, givenUsername: &str, givenPassword: &str) -> Re
         loginResult = String::from("Username not found\n");
     }
 
+    // send result to client
     match stream.write(&loginResult.as_bytes()) {
         Ok(_) => {
             println!("Login result sent");
@@ -264,6 +277,7 @@ fn login(mut stream: &TcpStream, givenUsername: &str, givenPassword: &str) -> Re
     Ok(())
 }
 
+// function to handle search for server
 fn search(mut stream: &TcpStream, command: &Vec<&str>, user: &str) -> Result<()> {
     // if searching in public folder
     let public_option = command.contains(&"-p");
@@ -280,17 +294,21 @@ fn search(mut stream: &TcpStream, command: &Vec<&str>, user: &str) -> Result<()>
     } else {
         path = PathBuf::from(format!("./server_privateFiles/{}/", user));
     }
+    // get list of entries in a directory
     match read_dir(Path::new(&path)) {
         Ok(dir_files) => {
+            // for each entry check if it is not a directory
             for entry in dir_files {
                 let entry = entry?;
                 let file_path = entry.path();
                 if !file_path.is_dir() {
                     if let Ok(name) = entry.file_name().into_string() {
+                        // then check if entry matches based on extension or name based on options given
                         if ext_option {
                             if let Some(ext) = file_path.extension() {
                                 if let Some(last_elem) = command.last() {
                                     if ext.to_str() == Some(last_elem) {
+                                        // add matching results to vector
                                         files_in_dir.push(name.clone());
                                     }
                                 }
@@ -315,6 +333,7 @@ fn search(mut stream: &TcpStream, command: &Vec<&str>, user: &str) -> Result<()>
         }
     }
     data.push_str("\n");
+    // send result vector to client
     match stream.write(&data.as_bytes().to_vec()) {
         Ok(_) => {
             println!("Search results sent");
@@ -327,6 +346,7 @@ fn search(mut stream: &TcpStream, command: &Vec<&str>, user: &str) -> Result<()>
     Ok(())
 }
 
+// function for download command
 fn send_file(
     mut stream: &TcpStream,
     command: &Vec<&str>,
@@ -335,6 +355,7 @@ fn send_file(
     nonce: &[u8; 24],
 ) -> Result<()> {
     let mut path: PathBuf;
+    // downloading either from public or user directories
     if command[1] == "-p" {
         path = PathBuf::from("./server_publicFiles/");
         path.push(command[2]);
@@ -430,6 +451,7 @@ fn send_file(
     Ok(())
 }
 
+// function encrypt file upon upload
 fn encrypt_file(file_data: String, key: &[u8; 32], nonce: &[u8; 24]) -> Vec<u8> {
     let cipher = XChaCha20Poly1305::new(key.into());
 
@@ -441,6 +463,7 @@ fn encrypt_file(file_data: String, key: &[u8; 32], nonce: &[u8; 24]) -> Vec<u8> 
     encrypted_file
 }
 
+// function to decrypt file upon download
 fn decrypt_file(file_data: &Vec<u8>, key: &[u8; 32], nonce: &[u8; 24]) -> Vec<u8> {
     let cipher = XChaCha20Poly1305::new(key.into());
 
