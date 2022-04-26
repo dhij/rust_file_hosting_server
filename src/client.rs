@@ -14,7 +14,6 @@ fn main() {
         // buffer for reading stdin
         let mut line = String::new();
         io::stdin().read_line(&mut line).expect("Error on read");
-        println!("Executing CMD: {}", line);
         // match on input read from stdin
         match line[..].trim() {
             "connect" => {
@@ -37,7 +36,6 @@ fn main() {
 
 // function to handle user interaction loop after connecting to server
 fn command_loop() {
-    let mut quit: bool = false;
     let mut authenticated_user = false;
 
     // try connecting to server address
@@ -51,12 +49,9 @@ fn command_loop() {
             loop {
                 // user needs to be authenticated to access commands
                 if authenticated_user {
-                    if quit == true {
-                        break;
-                    }
                     // list of possible commands for authenticated users
                     let command_list =
-                "\n Commands: \n -- upload (-p) <file_path> \n -- download (-p) <file_name> \n -- search (-p, -x) <file_name or file_extension> \n -- makePrivate <file_name> \n -- makePublic <file_name> \n-- help \n -- quit \n";
+                "\n Commands: \n -- upload (-p) <file_path> \n -- download (-p) <file_name> \n -- search (-p, -x) <file_name or file_extension> \n -- makePrivate <file_name> \n -- makePublic <file_name> \n -- help \n -- quit \n";
 
                     loop {
                         println!("{}", command_list);
@@ -163,7 +158,8 @@ fn command_loop() {
                                 println!("{}", command_list);
                             }
                             "quit" => {
-                                quit = true;
+                                authenticated_user = false;
+                                println!("Logged Out");
                                 break;
                             }
                             _ => {
