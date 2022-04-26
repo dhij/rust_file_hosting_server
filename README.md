@@ -107,14 +107,11 @@ search -p -x pdf
 Copy a publicly stored file to a user's private directory on the server under server_privateFiles/\<username\>/
 ```
 makePrivate test1.txt
-
 ```
 
 Copy a privately stored file on the server under server_privateFiles/\<username\>/ to the public directory 
 ```
-
 makePublic test1.txt
-
 ```
 
 ### Crate Dependencies
