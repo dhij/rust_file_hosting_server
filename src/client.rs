@@ -184,7 +184,7 @@ fn command_loop() {
                     let cmd: Vec<&str> = user_input.trim().split_whitespace().collect();
                     match cmd[0] {
                         "login" => {
-                            if cmd.len() < 2 || cmd.len() > 2{
+                            if cmd.len() != 2 {
                                 println!("Command needs to be in the form: login <username>");
                                 println!("\nPlease try again: ");
                                 continue;
@@ -211,16 +211,17 @@ fn command_loop() {
                         }
                         "create" => {
                             // prompt the user for the password
+
+                            if cmd.len() != 2 {
+                                println!("Command needs to be in the form: create <username>");
+                                println!("\nPlease try again: ");
+                                continue;
+                            }
                             print!("Enter a new password: \n");
                             let mut password_input = String::new();
                             io::stdin()
                                 .read_line(&mut password_input)
                                 .expect("Error on reading the password");
-
-                            if cmd.len() < 2 || cmd.len() > 2 {
-                                println!("Command needs to be in the form: create <username>");
-                                println!("\nPlease try again: ");
-                            }
                             if let Err(e) = create_user(&stream, cmd[1], &password_input[..]) {
                                 println!("Creating user failed: {:?}", e);
                                 println!("\nPlease try again: ");
@@ -284,7 +285,7 @@ fn makePrivate(mut stream: &TcpStream, filename: &str) -> Result<()> {
 // function to handle the login operation
 fn login(mut stream: &TcpStream, username: &str, password: &str) -> bool {
 
-    let mut serverResult: bool = false;
+    let mut server_result: bool = false;
 
     // format the information needed to be sent to the server
     let data = format!("login {} {}", username, password)
@@ -302,29 +303,29 @@ fn login(mut stream: &TcpStream, username: &str, password: &str) -> bool {
         }
     }
 
-    //BufReader to read filesize, filesize_buf to store filesize
+    //BufReader to read response, login_result to store it 
     let mut reader = BufReader::new(stream);
-    let mut loginResult = Vec::new();
+    let mut login_result = Vec::new();
 
-    //read file size from server
-    match reader.read_until(b'\n', &mut loginResult) {
+    //read until \n byte from server
+    match reader.read_until(b'\n', &mut login_result) {
         Ok(_) => (),
         Err(e) => {
             println!("Error reading file size: {}", e);
         }
     }
 
-    loginResult.pop(); // pop the \n
+    login_result.pop(); // pop the \n
 
-    let loginRes = str::from_utf8(&loginResult).unwrap();
+    let login_res = str::from_utf8(&login_result).unwrap();
 
-    println!("{}", loginRes);
+    println!("{}", login_res);
 
-    if loginRes == "Login Successful" {
-        serverResult = true;
+    if login_res == "Login Successful" {
+        server_result = true;
     }
 
-    serverResult
+    server_result
 
 }
 
@@ -342,6 +343,24 @@ fn create_user(mut stream: &TcpStream, username: &str, password: &str) -> Result
             println!("Error sending user information to server: {}", e);
         }
     }
+
+    //BufReader to read response, create_result to store it 
+    let mut reader = BufReader::new(stream);
+    let mut create_result = Vec::new();
+
+    //read until \n byte from server
+    match reader.read_until(b'\n', &mut create_result) {
+        Ok(_) => (),
+        Err(e) => {
+            println!("Error reading file size: {}", e);
+        }
+    }
+
+    create_result.pop(); // pop the \n
+
+    let create_res = str::from_utf8(&create_result).unwrap();
+
+    println!("{}", create_res);
 
     Ok(())
 }

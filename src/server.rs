@@ -105,6 +105,9 @@ fn handle_client(mut stream: TcpStream) {
                         println!("File visibility Change Unsuccessful: {:?}", e);
                     }
                 } else if words[0] == "create" {
+                    let mut create_result = String::from("Hello\n");
+                    // check if username exists
+                    let mut username_found= false;
                     // hash the password
                     let hashed_password = hash(&words[2], DEFAULT_COST).unwrap();
                     let user_input = words[1];
@@ -129,28 +132,42 @@ fn handle_client(mut stream: TcpStream) {
 
                         // if username already exists
                         if user_info[0] == user_input {
-                            // TODO: throw error to the client
-                            eprintln!("Username exists. Please try again.");
-                            return;
+                            username_found = true;
                         }
                     }
 
                     // if the username does not already exist, append the new user_info to the existing user_info
-                    existing_users.push(user_info.clone());
+                    if !username_found {
+                        existing_users.push(user_info.clone());
+                        // join the list of existing users into a string separated by carriage returns
+                        let joined_users = existing_users.join("\n");
 
-                    // join the list of existing users into a string separated by carriage returns
-                    let joined_users = existing_users.join("\n");
+                        // write new list of users to the users.txt file
+                        let path = Path::new("./users/users.txt");
+                        let mut file = File::create(&path).expect("Error opening file");
+                        file.write_all(joined_users[..].as_bytes())
+                            .expect("Unable to write data");
+                        let new_directory_path = format!("./server_privateFiles/{}", &words[1]);
 
-                    // write new list of users to the users.txt file
-                    let path = Path::new("./users/users.txt");
-                    let mut file = File::create(&path).expect("Error opening file");
-                    file.write_all(joined_users[..].as_bytes())
-                        .expect("Unable to write data");
+                        // create a new user directory under server_publicFiles
+                        fs::create_dir_all(new_directory_path).unwrap();
+                        create_result = String::from("User Created\n");
+                    }
+                    else {
+                        create_result = String::from("Username already exists\n");
+                    }
 
-                    let new_directory_path = format!("./server_privateFiles/{}", &words[1]);
+                    // send result to client
+                    match stream.write(&create_result.as_bytes()) {
+                        Ok(_) => {
+                            println!("Create result sent");
+                            ()
+                        }
+                        Err(e) => {
+                            println!("Error sending result to server: {}", e);
+                        }
+                    }
 
-                    // create a new user directory under server_publicFiles
-                    fs::create_dir_all(new_directory_path).unwrap();
                 }
             } // ok
             Err(_) => {
@@ -270,7 +287,7 @@ fn login(mut stream: &TcpStream, givenUsername: &str, givenPassword: &str) -> Re
             ()
         }
         Err(e) => {
-            println!("Error sending file size to server: {}", e);
+            println!("Error sending result to server: {}", e);
         }
     }
 
