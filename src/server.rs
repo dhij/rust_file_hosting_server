@@ -208,7 +208,13 @@ fn makePublic(mut stream: &TcpStream, filename: &str, user: &str) -> Result<()> 
     //creates file to copy to
     let mut publicFile = std::fs::File::create(&publicPath).expect("Error creating file");
 
-    fs::copy(privatePath, publicPath)?;
+    match fs::copy(privatePath, publicPath){
+        Ok(u64) => (()),
+        Err(e) => {
+            println!("File Not Found");
+            fs::remove_file(PathBuf::from(format!("./server_publicFiles/{}", filename)));
+        },
+    }
 
     Ok(())
 }
@@ -221,7 +227,13 @@ fn makePrivate(mut stream: &TcpStream, filename: &str, user: &str) -> Result<()>
     //creates file to copy to
     let mut publicFile = std::fs::File::create(&privatePath).expect("Error creating file");
 
-    fs::copy(publicPath, privatePath)?;
+    match fs::copy(publicPath, privatePath){
+        Ok(u64) => (()),
+        Err(e) => {
+            println!("File Not Found");
+            fs::remove_file(PathBuf::from(format!("./server_privateFiles/{}/{}", user, filename)));
+        },
+    }
 
     Ok(())
 }
